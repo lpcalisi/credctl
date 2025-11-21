@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -14,12 +13,12 @@ var rootCmd = &cobra.Command{
 that retrieve credentials and execute them on demand with different output formats.
 
 The agent runs as a daemon and communicates via a Unix socket.`,
+	SilenceUsage: true,
 }
 
 // Execute runs the root command
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }

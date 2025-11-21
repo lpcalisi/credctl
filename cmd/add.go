@@ -20,10 +20,11 @@ var (
 )
 
 var addCmd = &cobra.Command{
-	Use:   "add <name> <command>",
-	Short: "Add a credential provider",
-	Long:  `Add a credential provider that executes a command to retrieve credentials.`,
-	Args:  cobra.ExactArgs(2),
+	Use:          "add <name> <command>",
+	Short:        "Add a credential provider",
+	Long:         `Add a credential provider that executes a command to retrieve credentials.`,
+	Args:         cobra.ExactArgs(2),
+	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := args[0]
 		command := args[1]

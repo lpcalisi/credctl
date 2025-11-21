@@ -14,7 +14,8 @@ var deleteCmd = &cobra.Command{
 	Short: "Delete a credential provider",
 	Long: `Delete a credential provider by name.
 This removes the provider configuration from disk.`,
-	Args: cobra.ExactArgs(1),
+	Args:         cobra.ExactArgs(1),
+	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := args[0]
 
