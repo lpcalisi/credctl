@@ -89,6 +89,7 @@ type DaemonInfo struct {
 	AdminSocket    string
 	ReadOnlySocket string
 	PID            int
+	LogFile        string
 }
 
 // Run starts the daemon and returns daemon info for the parent process
@@ -102,6 +103,7 @@ func Run() (*DaemonInfo, error) {
 	adminSocketPath := filepath.Join(homeDir, ".credctl", "agent.sock")
 	readOnlySocketPath := filepath.Join(homeDir, ".credctl", "agent-readonly.sock")
 	pidFile := filepath.Join(homeDir, ".credctl", "credctl.pid")
+	logFile := filepath.Join(homeDir, ".credctl", "daemon.log")
 
 	// Create directory for sockets and PID file
 	dir := filepath.Join(homeDir, ".credctl")
@@ -113,7 +115,7 @@ func Run() (*DaemonInfo, error) {
 	cntxt := &daemon.Context{
 		PidFileName: pidFile,
 		PidFilePerm: 0644,
-		LogFileName: filepath.Join(homeDir, ".credctl", "daemon.log"),
+		LogFileName: logFile,
 		LogFilePerm: 0640,
 		WorkDir:     "./",
 		Umask:       027,
@@ -130,6 +132,7 @@ func Run() (*DaemonInfo, error) {
 			AdminSocket:    adminSocketPath,
 			ReadOnlySocket: readOnlySocketPath,
 			PID:            d.Pid,
+			LogFile:        logFile,
 		}, nil
 	}
 	defer cntxt.Release()
