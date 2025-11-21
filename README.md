@@ -75,12 +75,12 @@ credctl add mytoken "echo 'secret-123'" --format env --env-var TOKEN
 
 **SSH with socket forwarding:**
 ```bash
-ssh -R /home/user/.credctl/agent-readonly.sock:$HOME/.credctl/agent-readonly.sock user@remote
+ssh -R /home/user/agent-readonly.sock:$CREDCTL_SOCK user@remote
 ```
 
 **On remote host:**
 ```bash
-export CREDCTL_SOCK=/home/user/.credctl/agent-readonly.sock
+export CREDCTL_SOCK=/home/user/agent-readonly.sock
 
 # Get credentials (allowed)
 credctl get mytoken             # ✓ Works
