@@ -18,17 +18,29 @@ import (
 func handleConn(conn net.Conn, state *State, readOnly bool) {
 	defer conn.Close()
 
+	socketType := "admin"
+	if readOnly {
+		socketType = "readonly"
+	}
+
+	log.Printf("[%s] new connection", socketType)
+
 	scanner := bufio.NewScanner(conn)
 	if !scanner.Scan() {
 		if err := scanner.Err(); err != nil {
-			log.Printf("error reading from connection: %v", err)
+			log.Printf("[%s] error reading from connection: %v", socketType, err)
+		} else {
+			log.Printf("[%s] connection closed by client (no data)", socketType)
 		}
 		return
 	}
 
+	rawRequest := scanner.Bytes()
+	log.Printf("[%s] received %d bytes", socketType, len(rawRequest))
+
 	var req protocol.Request
-	if err := json.Unmarshal(scanner.Bytes(), &req); err != nil {
-		log.Printf("error parsing request: %v", err)
+	if err := json.Unmarshal(rawRequest, &req); err != nil {
+		log.Printf("[%s] error parsing request: %v", socketType, err)
 		resp := protocol.Response{
 			Status: "error",
 			Error:  fmt.Sprintf("invalid JSON: %v", err),
@@ -37,6 +49,8 @@ func handleConn(conn net.Conn, state *State, readOnly bool) {
 		conn.Write(append(respJSON, '\n'))
 		return
 	}
+
+	log.Printf("[%s] processing action=%s", socketType, req.Action)
 
 	var resp protocol.Response
 	switch req.Action {
@@ -53,14 +67,20 @@ func handleConn(conn net.Conn, state *State, readOnly bool) {
 		}
 	}
 
+	log.Printf("[%s] action=%s status=%s", socketType, req.Action, resp.Status)
+
 	respJSON, err := json.Marshal(resp)
 	if err != nil {
-		log.Printf("error marshaling response: %v", err)
+		log.Printf("[%s] error marshaling response: %v", socketType, err)
 		return
 	}
 
+	log.Printf("[%s] sending %d bytes response", socketType, len(respJSON))
+
 	if _, err := conn.Write(append(respJSON, '\n')); err != nil {
-		log.Printf("error writing response: %v", err)
+		log.Printf("[%s] error writing response: %v", socketType, err)
+	} else {
+		log.Printf("[%s] response sent successfully", socketType)
 	}
 }
 
