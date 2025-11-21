@@ -1,4 +1,6 @@
 credctl
+credctl_*
 main
-credctl_linux_arm
-credctl_linux_amd
+.credctl/
+*.swp
+*.swo

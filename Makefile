@@ -1,4 +1,4 @@
-.PHONY: build install uninstall clean
+.PHONY: build install uninstall clean build-linux-amd64 build-linux-arm64 build-darwin-amd64 build-darwin-arm64 build-all
 
 # Binary name
 BINARY=credctl
@@ -48,18 +48,52 @@ uninstall:
 # Clean build artifacts
 clean:
 	@echo "Cleaning build artifacts..."
-	@rm -f $(BINARY)
+	@rm -f $(BINARY) $(BINARY)_*
 	@echo "✓ Clean complete"
+
+# Cross-compilation targets
+build-linux-amd64:
+	@echo "Building $(BINARY) for linux/amd64..."
+	@GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BINARY)_linux_amd64 .
+	@echo "✓ Build complete: ./$(BINARY)_linux_amd64"
+
+build-linux-arm64:
+	@echo "Building $(BINARY) for linux/arm64..."
+	@GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o $(BINARY)_linux_arm64 .
+	@echo "✓ Build complete: ./$(BINARY)_linux_arm64"
+
+build-darwin-amd64:
+	@echo "Building $(BINARY) for darwin/amd64..."
+	@GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BINARY)_darwin_amd64 .
+	@echo "✓ Build complete: ./$(BINARY)_darwin_amd64"
+
+build-darwin-arm64:
+	@echo "Building $(BINARY) for darwin/arm64..."
+	@GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o $(BINARY)_darwin_arm64 .
+	@echo "✓ Build complete: ./$(BINARY)_darwin_arm64"
+
+# Build for all common platforms
+build-all: build-linux-amd64 build-linux-arm64 build-darwin-amd64 build-darwin-arm64
+	@echo ""
+	@echo "✓ All builds complete"
+	@ls -lh $(BINARY)_*
 
 # Show help
 help:
 	@echo "credctl Makefile"
 	@echo ""
 	@echo "Usage:"
-	@echo "  make build      - Build the binary"
-	@echo "  make install    - Install credctl to \$$(go env GOPATH)/bin"
-	@echo "  make uninstall  - Remove credctl from \$$(go env GOPATH)/bin"
-	@echo "  make clean      - Clean build artifacts"
+	@echo "  make build              - Build for current platform"
+	@echo "  make install            - Install credctl to \$$(go env GOPATH)/bin"
+	@echo "  make uninstall          - Remove credctl from \$$(go env GOPATH)/bin"
+	@echo "  make clean              - Clean build artifacts"
+	@echo ""
+	@echo "Cross-compilation:"
+	@echo "  make build-linux-amd64  - Build for Linux x86_64"
+	@echo "  make build-linux-arm64  - Build for Linux ARM64"
+	@echo "  make build-darwin-amd64 - Build for macOS Intel"
+	@echo "  make build-darwin-arm64 - Build for macOS Apple Silicon"
+	@echo "  make build-all          - Build for all platforms"
 	@echo ""
 	@echo "Installation directory can be changed with PREFIX:"
 	@echo "  make install PREFIX=/usr/local"
