@@ -8,8 +8,46 @@ A tiny SSH-forwardable credential agent for Unix systems (macOS/Linux).
 
 ## Installation
 
+### Using Make (recommended)
+
+```bash
+make install
+```
+
+This will build and install `credctl` to `$(go env GOPATH)/bin` (usually `~/go/bin`).
+
+Make sure `$(go env GOPATH)/bin` is in your PATH:
+```bash
+# Add to ~/.bashrc, ~/.zshrc, or equivalent
+export PATH="$(go env GOPATH)/bin:$PATH"
+```
+
+You can customize the installation directory:
+
+```bash
+# Install to /usr/local/bin instead
+make install PREFIX=/usr/local
+
+# Install to ~/.local/bin
+make install PREFIX=~/.local
+
+# Just build without installing
+make build
+```
+
+### Manual installation
+
 ```bash
 go build -o credctl
+mv credctl $(go env GOPATH)/bin/
+# or
+sudo mv credctl /usr/local/bin/
+```
+
+### Uninstall
+
+```bash
+make uninstall
 ```
 
 ## Quick Start
