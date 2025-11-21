@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/fang"
 	"github.com/spf13/cobra"
+	"sigs.k8s.io/release-utils/version"
 )
 
 var rootCmd = &cobra.Command{
@@ -15,10 +16,17 @@ var rootCmd = &cobra.Command{
 that retrieve credentials and execute them on demand with different output formats.
 
 The agent runs as a daemon and communicates via a Unix socket.`,
+	Version: "placeholder", // Required for Cobra/Fang to add -v flag
 }
 
 // Execute runs the root command with Fang for beautiful output
 func Execute() {
+	// Configure version template to use release-utils format with ASCII art
+	info := version.GetVersionInfo()
+	info.Name = rootCmd.Name()
+	info.Description = rootCmd.Short
+	rootCmd.SetVersionTemplate(info.String())
+
 	if err := fang.Execute(context.Background(), rootCmd); err != nil {
 		os.Exit(1)
 	}

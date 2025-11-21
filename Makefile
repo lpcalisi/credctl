@@ -8,10 +8,26 @@ GOPATH?=$(shell go env GOPATH)
 PREFIX?=$(GOPATH)
 INSTALL_DIR=$(PREFIX)/bin
 
+# Package for version variables
+PKG=sigs.k8s.io/release-utils/version
+
+# Version information
+GIT_VERSION?=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+GIT_HASH?=$(shell git rev-parse HEAD 2>/dev/null || echo "none")
+GIT_TREESTATE?=$(shell test -z "$$(git status --porcelain 2>/dev/null)" && echo "clean" || echo "dirty")
+BUILD_DATE?=$(shell date -u '+%Y-%m-%dT%H:%M:%SZ')
+
+# Build flags
+LDFLAGS=-w -s -buildid= \
+	-X $(PKG).gitVersion=$(GIT_VERSION) \
+	-X $(PKG).gitCommit=$(GIT_HASH) \
+	-X $(PKG).gitTreeState=$(GIT_TREESTATE) \
+	-X $(PKG).buildDate=$(BUILD_DATE)
+
 # Build binary
 build:
-	@echo "Building $(BINARY)..."
-	@go build -o $(BINARY) .
+	@echo "Building $(BINARY) $(GIT_VERSION)..."
+	@go build -ldflags "$(LDFLAGS)" -o $(BINARY) .
 	@echo "Build complete: ./$(BINARY)"
 
 # Install binary to PATH
@@ -48,4 +64,7 @@ help:
 	@echo "Installation directory can be changed with PREFIX:"
 	@echo "  make install PREFIX=/usr/local"
 	@echo "  make install PREFIX=~/.local"
+	@echo ""
+	@echo "Version can be set explicitly:"
+	@echo "  make build VERSION=1.0.0"
 
