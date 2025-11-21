@@ -10,10 +10,9 @@ import (
 )
 
 var exportCmd = &cobra.Command{
-	Use:          "export",
-	Short:        "Export all providers to JSON",
-	Long:         `Export all credential providers to JSON format for backup or distribution.`,
-	SilenceUsage: true,
+	Use:   "export",
+	Short: "Export all providers to JSON",
+	Long:  `Export all credential providers to JSON format for backup or distribution.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// List all providers
 		names, err := provider.List()
@@ -46,4 +45,3 @@ var exportCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(exportCmd)
 }
-

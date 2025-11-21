@@ -11,11 +11,10 @@ import (
 )
 
 var loginCmd = &cobra.Command{
-	Use:          "login <name>",
-	Short:        "Execute the login command for a provider",
-	Long:         `Execute the interactive login command configured for a credential provider.`,
-	Args:         cobra.ExactArgs(1),
-	SilenceUsage: true,
+	Use:   "login <name>",
+	Short: "Execute the login command for a provider",
+	Long:  `Execute the interactive login command configured for a credential provider.`,
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := args[0]
 

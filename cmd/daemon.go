@@ -16,7 +16,6 @@ The daemon listens on a Unix socket and handles credential requests.
 
 To configure your shell, run:
   eval $(credctl daemon)`,
-	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		info, err := daemon.Run()
 		if err != nil {

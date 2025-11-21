@@ -22,8 +22,7 @@ var getCmd = &cobra.Command{
 
 By default, uses the format configured in the provider.
 Use --raw to always get the raw credential value.`,
-	Args:         cobra.ExactArgs(1),
-	SilenceUsage: true,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := args[0]
 

@@ -18,11 +18,10 @@ var (
 )
 
 var importCmd = &cobra.Command{
-	Use:          "import [file]",
-	Short:        "Import providers from JSON file or stdin",
-	Long:         `Import credential providers from a JSON file or stdin. By default, skips existing providers.`,
-	Args:         cobra.MaximumNArgs(1),
-	SilenceUsage: true,
+	Use:   "import [file]",
+	Short: "Import providers from JSON file or stdin",
+	Long:  `Import credential providers from a JSON file or stdin. By default, skips existing providers.`,
+	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var data []byte
 		var err error
