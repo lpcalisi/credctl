@@ -6,61 +6,82 @@ import (
 	"credctl/internal/client"
 	"credctl/internal/protocol"
 	"credctl/internal/provider"
+	_ "credctl/internal/provider/command" // Import to register provider
 
 	"github.com/spf13/cobra"
 )
 
 var (
-	format   string
-	envVar   string
-	filePath string
-	fileMode string
-	login    string
 	runLogin bool
 )
 
 var addCmd = &cobra.Command{
-	Use:   "add <name> <command>",
+	Use:   "add <type> <name>",
 	Short: "Add a credential provider",
-	Long:  `Add a credential provider that executes a command to retrieve credentials.`,
-	Args:  cobra.ExactArgs(2),
+	Long: `Add a credential provider.
+
+Examples:
+  credctl add command github --command "gh auth token" --format env
+  credctl add command aws --command "aws sts get-session-token" --format raw
+  
+Available provider types: ` + fmt.Sprintf("%v", provider.ListTypes()),
+	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		name := args[0]
-		command := args[1]
+		providerType := args[0]
+		name := args[1]
+
+		if providerType == "" {
+			return fmt.Errorf("provider type cannot be empty")
+		}
 
 		if name == "" {
 			return fmt.Errorf("provider name cannot be empty")
 		}
 
-		if command == "" {
-			return fmt.Errorf("provider command cannot be empty")
+		// Get schema for the provider type
+		schema, err := provider.GetSchema(providerType)
+		if err != nil {
+			return fmt.Errorf("unknown provider type '%s': %w\nAvailable types: %v", providerType, err, provider.ListTypes())
+		}
+
+		// Extract config from flags
+		config, err := provider.ExtractConfig(cmd, schema)
+		if err != nil {
+			return fmt.Errorf("failed to extract configuration: %w", err)
+		}
+
+		// Create provider instance
+		prov, err := provider.New(providerType)
+		if err != nil {
+			return err
+		}
+
+		// Initialize provider with config
+		if err := prov.Init(config); err != nil {
+			return fmt.Errorf("failed to initialize provider: %w", err)
 		}
 
 		// Execute login command if requested
-		if runLogin && login != "" {
-			fmt.Printf("Running login command: %s\n", login)
-			if err := executeInteractive(login); err != nil {
-				return fmt.Errorf("login command failed: %w", err)
+		if runLogin {
+			loginProvider, ok := prov.(provider.LoginProvider)
+			if !ok {
+				return fmt.Errorf("provider type '%s' does not support login", providerType)
+			}
+
+			fmt.Printf("Running login for provider '%s'...\n", name)
+			if err := loginProvider.Login(cmd.Context()); err != nil {
+				return fmt.Errorf("login failed: %w", err)
 			}
 			fmt.Println("Login successful")
 		}
 
-		// Create provider
-		prov := provider.Provider{
-			Name:         name,
-			Command:      command,
-			Format:       format,
-			EnvVar:       envVar,
-			FilePath:     filePath,
-			FileMode:     fileMode,
-			LoginCommand: login,
-		}
-
-		// Send request to daemon
+		// Send request to daemon with provider name and metadata
 		req := protocol.Request{
 			Action: "add",
 			Payload: protocol.AddPayload{
-				Provider: prov,
+				Name:     name,
+				Type:     prov.Type(),
+				Metadata: prov.Metadata(),
 			},
 		}
 
@@ -79,11 +100,10 @@ var addCmd = &cobra.Command{
 }
 
 func init() {
-	addCmd.Flags().StringVar(&format, "format", "raw", "Output format: raw, env, file")
-	addCmd.Flags().StringVar(&envVar, "env-var", "", "Environment variable name (for env format)")
-	addCmd.Flags().StringVar(&filePath, "file-path", "", "File path to write credentials to (for file format)")
-	addCmd.Flags().StringVar(&fileMode, "file-mode", "0600", "File permissions in octal format (for file format)")
-	addCmd.Flags().StringVar(&login, "login", "", "Login command to execute for interactive authentication")
 	addCmd.Flags().BoolVar(&runLogin, "run-login", false, "Execute the login command before adding the provider")
+
+	// Add flags for all registered provider types
+	provider.AddAllProviderFlags(addCmd)
+
 	rootCmd.AddCommand(addCmd)
 }

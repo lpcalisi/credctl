@@ -9,6 +9,7 @@ import (
 	"credctl/internal/client"
 	"credctl/internal/protocol"
 	"credctl/internal/provider"
+	_ "credctl/internal/provider/command" // Import to register providers
 
 	"github.com/spf13/cobra"
 )
@@ -16,6 +17,13 @@ import (
 var (
 	overwrite bool
 )
+
+// ImportedProvider represents a provider from import file
+type ImportedProvider struct {
+	Name string         `json:"name"`
+	Type string         `json:"type"`
+	Data map[string]any `json:"data"`
+}
 
 var importCmd = &cobra.Command{
 	Use:   "import [file]",
@@ -43,22 +51,22 @@ var importCmd = &cobra.Command{
 		}
 
 		// Parse JSON
-		var providers []*provider.Provider
-		if err := json.Unmarshal(data, &providers); err != nil {
+		var importedProviders []ImportedProvider
+		if err := json.Unmarshal(data, &importedProviders); err != nil {
 			return fmt.Errorf("failed to parse JSON: %w", err)
 		}
 
-		if len(providers) == 0 {
+		if len(importedProviders) == 0 {
 			fmt.Println("No providers found in file")
 			return nil
 		}
 
 		// Import each provider via daemon
-		imported := 0
+		importedCount := 0
 		skipped := 0
 		failed := 0
 
-		for _, prov := range providers {
+		for _, prov := range importedProviders {
 			// Check if provider already exists (unless overwrite flag is set)
 			if !overwrite {
 				_, err := provider.Load(prov.Name)
@@ -73,7 +81,9 @@ var importCmd = &cobra.Command{
 			req := protocol.Request{
 				Action: "add",
 				Payload: protocol.AddPayload{
-					Provider: *prov,
+					Name:     prov.Name,
+					Type:     prov.Type,
+					Metadata: prov.Data,
 				},
 			}
 
@@ -91,11 +101,11 @@ var importCmd = &cobra.Command{
 			}
 
 			fmt.Printf("Imported '%s'\n", prov.Name)
-			imported++
+			importedCount++
 		}
 
 		// Summary
-		fmt.Printf("\nImport complete: %d imported, %d skipped, %d failed\n", imported, skipped, failed)
+		fmt.Printf("\nImport complete: %d imported, %d skipped, %d failed\n", importedCount, skipped, failed)
 
 		if failed > 0 {
 			return fmt.Errorf("some providers failed to import")

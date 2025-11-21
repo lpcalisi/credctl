@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os/exec"
-	"strings"
 	"time"
 
 	"credctl/internal/protocol"
+	"credctl/internal/provider"
+	_ "credctl/internal/provider/command" // Import to register providers
 )
 
 // Add processes an "add" request
@@ -37,25 +37,40 @@ func Add(state *State, payload interface{}, readOnly bool) protocol.Response {
 		}
 	}
 
-	prov := &addPayload.Provider
-
-	// Validate provider
-	if prov.Name == "" {
+	// Validate payload
+	if addPayload.Name == "" {
 		return protocol.Response{
 			Status: "error",
 			Error:  "provider name cannot be empty",
 		}
 	}
 
-	if prov.Command == "" {
+	if addPayload.Type == "" {
 		return protocol.Response{
 			Status: "error",
-			Error:  "provider command cannot be empty",
+			Error:  "provider type cannot be empty",
+		}
+	}
+
+	// Create provider instance
+	prov, err := provider.New(addPayload.Type)
+	if err != nil {
+		return protocol.Response{
+			Status: "error",
+			Error:  fmt.Sprintf("failed to create provider: %v", err),
+		}
+	}
+
+	// Initialize provider with metadata
+	if err := prov.Init(addPayload.Metadata); err != nil {
+		return protocol.Response{
+			Status: "error",
+			Error:  fmt.Sprintf("failed to initialize provider: %v", err),
 		}
 	}
 
 	// Add provider (saves to disk and memory)
-	if err := state.Add(prov); err != nil {
+	if err := state.Add(addPayload.Name, prov); err != nil {
 		return protocol.Response{
 			Status: "error",
 			Error:  fmt.Sprintf("failed to add provider: %v", err),
@@ -95,44 +110,24 @@ func Get(state *State, payload interface{}, readOnly bool) protocol.Response {
 		}
 	}
 
-	// Execute command with timeout
+	// Execute provider Get with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", prov.Command)
-
-	// Capture stdout and stderr separately
-	stdout, err := cmd.Output()
+	output, err := prov.Get(ctx)
 	if err != nil {
-		// Command failed, capture stderr for context
-		var stderr string
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			stderr = strings.TrimSpace(string(exitErr.Stderr))
-			if len(stderr) > 500 {
-				stderr = stderr[:500] + "..."
-			}
-		}
-
-		errorMsg := fmt.Sprintf("command failed: %v", err)
-		if stderr != "" {
-			errorMsg = fmt.Sprintf("command failed: %v: %s", err, stderr)
-		}
-
 		return protocol.Response{
 			Status: "error",
-			Error:  errorMsg,
+			Error:  fmt.Sprintf("failed to get credential: %v", err),
 		}
 	}
 
-	// Success: use only stdout, ignore any stderr
-	// Return raw output and provider metadata - let the client format it
-	rawOutput := strings.TrimRight(string(stdout), "\r\n")
-
+	// Return output and provider metadata
 	return protocol.Response{
 		Status: "ok",
 		Payload: protocol.GetResponsePayload{
-			Output:   rawOutput,
-			Provider: prov,
+			Output:   string(output),
+			Metadata: prov.Metadata(),
 		},
 	}
 }

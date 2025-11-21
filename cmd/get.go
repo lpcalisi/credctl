@@ -7,6 +7,7 @@ import (
 	"credctl/internal/client"
 	"credctl/internal/formatter"
 	"credctl/internal/protocol"
+	"credctl/internal/provider"
 
 	"github.com/spf13/cobra"
 )
@@ -59,7 +60,7 @@ Use --raw to always get the raw credential value.`,
 		}
 
 		rawOutput := getRespPayload.Output
-		prov := getRespPayload.Provider
+		metadata := getRespPayload.Metadata
 
 		// If --raw flag is set, always output raw
 		if raw {
@@ -71,24 +72,28 @@ Use --raw to always get the raw credential value.`,
 		}
 
 		// Use provider's configured format (default to raw if not set)
-		format := "raw"
-		if prov != nil && prov.Format != "" {
-			format = prov.Format
+		format := provider.FormatRaw
+		if metadata != nil {
+			if formatVal, ok := metadata[provider.MetadataFormat].(string); ok {
+				format = formatVal
+			}
 		}
 
 		switch format {
-		case "raw":
+		case provider.FormatRaw:
 			// Print raw output
 			fmt.Print(formatter.Raw(rawOutput))
 			if len(rawOutput) > 0 && rawOutput[len(rawOutput)-1] != '\n' {
 				fmt.Println()
 			}
 
-		case "env":
+		case provider.FormatEnv:
 			// Format as environment variables
 			envVar := ""
-			if prov != nil {
-				envVar = prov.EnvVar
+			if metadata != nil {
+				if envVarVal, ok := metadata[provider.MetadataEnvVar].(string); ok {
+					envVar = envVarVal
+				}
 			}
 			formatted, err := formatter.Env(rawOutput, envVar)
 			if err != nil {
@@ -96,13 +101,13 @@ Use --raw to always get the raw credential value.`,
 			}
 			fmt.Println(formatted)
 
-		case "file":
+		case provider.FormatFile:
 			// Write to file
-			if prov == nil {
+			if metadata == nil {
 				return fmt.Errorf("provider configuration not found")
 			}
 
-			writtenPath, err := formatter.File(rawOutput, prov)
+			writtenPath, err := formatter.FileFromMetadata(rawOutput, metadata)
 			if err != nil {
 				return fmt.Errorf("failed to write file: %w", err)
 			}

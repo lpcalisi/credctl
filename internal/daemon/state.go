@@ -8,14 +8,14 @@ import (
 
 // State represents the daemon's in-memory state
 type State struct {
-	providers map[string]*provider.Provider
+	providers map[string]provider.Provider
 	mu        sync.RWMutex
 }
 
 // NewState creates a new daemon state and loads providers from disk
 func NewState() (*State, error) {
 	s := &State{
-		providers: make(map[string]*provider.Provider),
+		providers: make(map[string]provider.Provider),
 	}
 
 	// Load all providers from disk
@@ -49,22 +49,22 @@ func (s *State) LoadAll() error {
 }
 
 // Add adds a provider to memory and persists it to disk
-func (s *State) Add(prov *provider.Provider) error {
+func (s *State) Add(name string, prov provider.Provider) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	// Save to disk first
-	if err := prov.Save(); err != nil {
+	if err := provider.Save(name, prov); err != nil {
 		return err
 	}
 
 	// Then update memory
-	s.providers[prov.Name] = prov
+	s.providers[name] = prov
 	return nil
 }
 
 // Get retrieves a provider from memory
-func (s *State) Get(name string) (*provider.Provider, error) {
+func (s *State) Get(name string) (provider.Provider, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 

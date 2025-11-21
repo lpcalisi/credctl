@@ -1,7 +1,5 @@
 package protocol
 
-import "credctl/internal/provider"
-
 // Request represents a request to the daemon
 type Request struct {
 	Action  string      `json:"action"`
@@ -10,7 +8,9 @@ type Request struct {
 
 // AddPayload is the payload for the "add" action
 type AddPayload struct {
-	Provider provider.Provider `json:"provider"`
+	Name     string         `json:"name"`
+	Type     string         `json:"type"`
+	Metadata map[string]any `json:"metadata"`
 }
 
 // GetPayload is the payload for the "get" action
@@ -32,7 +32,6 @@ type Response struct {
 
 // GetResponsePayload is the payload of response for "get"
 type GetResponsePayload struct {
-	Output   string             `json:"output"`
-	Provider *provider.Provider `json:"provider,omitempty"`
+	Output   string         `json:"output"`
+	Metadata map[string]any `json:"metadata,omitempty"`
 }
-

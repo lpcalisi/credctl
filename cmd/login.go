@@ -6,6 +6,7 @@ import (
 
 	"credctl/internal/client"
 	"credctl/internal/protocol"
+	"credctl/internal/provider"
 
 	"github.com/spf13/cobra"
 )
@@ -39,7 +40,7 @@ var loginCmd = &cobra.Command{
 			return fmt.Errorf("error: %s", resp.Error)
 		}
 
-		// Extract provider from response
+		// Extract metadata and type from response
 		payloadBytes, err := json.Marshal(resp.Payload)
 		if err != nil {
 			return fmt.Errorf("failed to parse response: %w", err)
@@ -50,20 +51,29 @@ var loginCmd = &cobra.Command{
 			return fmt.Errorf("failed to parse response: %w", err)
 		}
 
-		prov := getRespPayload.Provider
-		if prov == nil {
+		metadata := getRespPayload.Metadata
+		if metadata == nil {
 			return fmt.Errorf("provider data not found")
 		}
 
-		// Check if login command is configured
-		if prov.LoginCommand == "" {
-			return fmt.Errorf("provider '%s' does not have a login command configured\nUse 'credctl add' with --login flag to configure one", name)
+		// Get provider type from metadata (should be included in GetResponsePayload)
+		// For now, we need to load the provider to check if it supports login
+		// We'll load it from disk directly
+		prov, err := provider.Load(name)
+		if err != nil {
+			return fmt.Errorf("failed to load provider: %w", err)
 		}
 
-		// Execute login command interactively
-		fmt.Printf("Running login command for '%s': %s\n", name, prov.LoginCommand)
-		if err := executeInteractive(prov.LoginCommand); err != nil {
-			return fmt.Errorf("login command failed: %w", err)
+		// Check if provider supports login
+		loginProvider, ok := prov.(provider.LoginProvider)
+		if !ok {
+			return fmt.Errorf("provider '%s' (type: %s) does not support login", name, prov.Type())
+		}
+
+		// Execute provider-specific login
+		fmt.Printf("Running login for provider '%s'...\n", name)
+		if err := loginProvider.Login(cmd.Context()); err != nil {
+			return fmt.Errorf("login failed: %w", err)
 		}
 
 		fmt.Printf("Login successful for provider '%s'\n", name)

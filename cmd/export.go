@@ -9,6 +9,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// ExportedProvider represents a provider for export
+type ExportedProvider struct {
+	Name string         `json:"name"`
+	Type string         `json:"type"`
+	Data map[string]any `json:"data"`
+}
+
 var exportCmd = &cobra.Command{
 	Use:   "export",
 	Short: "Export all providers to JSON",
@@ -21,17 +28,22 @@ var exportCmd = &cobra.Command{
 		}
 
 		// Load all providers
-		var providers []*provider.Provider
+		var exported []ExportedProvider
 		for _, name := range names {
 			prov, err := provider.Load(name)
 			if err != nil {
 				return fmt.Errorf("failed to load provider %s: %w", name, err)
 			}
-			providers = append(providers, prov)
+
+			exported = append(exported, ExportedProvider{
+				Name: name,
+				Type: prov.Type(),
+				Data: prov.Metadata(),
+			})
 		}
 
 		// Marshal to JSON with indentation
-		data, err := json.MarshalIndent(providers, "", "  ")
+		data, err := json.MarshalIndent(exported, "", "  ")
 		if err != nil {
 			return fmt.Errorf("failed to marshal providers: %w", err)
 		}
