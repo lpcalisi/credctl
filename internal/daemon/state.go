@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"fmt"
 	"sync"
 
 	"credctl/internal/provider"
@@ -52,6 +53,14 @@ func (s *State) LoadAll() error {
 func (s *State) Add(name string, prov provider.Provider) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	exists, err := provider.Exists(name)
+	if err != nil {
+		return fmt.Errorf("failed to check provider existence: %w", err)
+	}
+	if exists {
+		return fmt.Errorf("provider '%s' already exists", name)
+	}
 
 	// Save to disk first
 	if err := provider.Save(name, prov); err != nil {

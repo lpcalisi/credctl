@@ -31,26 +31,25 @@ func Save(name string, prov Provider) error {
 		return err
 	}
 
-	// Create directory if it doesn't exist
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return fmt.Errorf("failed to create providers directory: %w", err)
 	}
 
-	// Create stored provider structure
 	stored := StoredProvider{
 		Name: name,
 		Type: prov.Type(),
 		Data: prov.Metadata(),
 	}
 
-	// Marshal to JSON
 	data, err := json.MarshalIndent(stored, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal provider: %w", err)
 	}
 
-	// Write to file
-	filePath := filepath.Join(dir, fmt.Sprintf("%s.json", name))
+	filePath, err := getFilePath(name)
+	if err != nil {
+		return err
+	}
 	if err := os.WriteFile(filePath, data, 0600); err != nil {
 		return fmt.Errorf("failed to write provider file: %w", err)
 	}
@@ -60,12 +59,11 @@ func Save(name string, prov Provider) error {
 
 // Load reads a provider from disk
 func Load(name string) (Provider, error) {
-	dir, err := ProvidersDir()
+	filePath, err := getFilePath(name)
 	if err != nil {
 		return nil, err
 	}
 
-	filePath := filepath.Join(dir, name+".json")
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -78,7 +76,7 @@ func Load(name string) (Provider, error) {
 	var stored StoredProvider
 	if err := json.Unmarshal(data, &stored); err == nil && stored.Type != "" {
 		// New format with type field
-		return loadFromStored(name, stored)
+		return loadFromStored(stored)
 	}
 
 	// Fallback to old format (migrate automatically)
@@ -86,7 +84,7 @@ func Load(name string) (Provider, error) {
 }
 
 // loadFromStored creates a provider from the stored format
-func loadFromStored(name string, stored StoredProvider) (Provider, error) {
+func loadFromStored(stored StoredProvider) (Provider, error) {
 	// Create provider instance
 	prov, err := New(stored.Type)
 	if err != nil {
@@ -134,12 +132,11 @@ func migrateOldFormat(name string, data []byte) (Provider, error) {
 
 // Delete removes a provider from disk
 func Delete(name string) error {
-	dir, err := ProvidersDir()
+	filePath, err := getFilePath(name)
 	if err != nil {
 		return err
 	}
 
-	filePath := filepath.Join(dir, name+".json")
 	if err := os.Remove(filePath); err != nil {
 		if os.IsNotExist(err) {
 			return fmt.Errorf("provider not found: %s", name)
@@ -173,4 +170,29 @@ func List() ([]string, error) {
 		}
 	}
 	return names, nil
+}
+
+// Exists checks if a provider exists on disk
+func Exists(name string) (bool, error) {
+	filePath, err := getFilePath(name)
+	if err != nil {
+		return false, err
+	}
+
+	_, err = os.Stat(filePath)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
+}
+
+func getFilePath(name string) (string, error) {
+	dir, err := ProvidersDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, fmt.Sprintf("%s.json", name)), nil
 }
