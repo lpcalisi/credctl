@@ -6,6 +6,7 @@ require (
 	github.com/charmbracelet/fang v0.4.4
 	github.com/sevlyar/go-daemon v0.1.6
 	github.com/spf13/cobra v1.10.1
+	sigs.k8s.io/release-utils v0.12.2
 )
 
 require (
@@ -36,5 +37,4 @@ require (
 	golang.org/x/sync v0.17.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/text v0.29.0 // indirect
-	sigs.k8s.io/release-utils v0.12.2 // indirect
 )
