@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"credctl/internal/client"
 	"credctl/internal/protocol"
@@ -25,8 +26,20 @@ Examples:
   credctl add command aws --command "aws sts get-session-token" --format raw
   
 Available provider types: ` + fmt.Sprintf("%v", provider.ListTypes()),
-	Args: cobra.ExactArgs(2),
-	RunE: func(cmd *cobra.Command, args []string) error {
+	DisableFlagParsing: true,
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		// Handle --help manually since DisableFlagParsing is true
+		for _, arg := range args {
+			if arg == "--help" || arg == "-h" {
+				_ = cmd.Help()
+				os.Exit(0)
+			}
+		}
+
+		if len(args) < 2 {
+			return fmt.Errorf("requires at least 2 args: <type> <name>")
+		}
+
 		providerType := args[0]
 		name := args[1]
 
@@ -38,30 +51,36 @@ Available provider types: ` + fmt.Sprintf("%v", provider.ListTypes()),
 			return fmt.Errorf("provider name cannot be empty")
 		}
 
-		// Get schema for the provider type
+		if !provider.IsRegistered(providerType) {
+			return fmt.Errorf("unknown provider type '%s'\nAvailable types: %v", providerType, provider.ListTypes())
+		}
+
+		cmd.DisableFlagParsing = false
+		return cmd.ParseFlags(args)
+	},
+	RunE: func(cmd *cobra.Command, args []string) error {
+		providerType := args[0]
+		name := args[1]
+
 		schema, err := provider.GetSchema(providerType)
 		if err != nil {
 			return fmt.Errorf("unknown provider type '%s': %w\nAvailable types: %v", providerType, err, provider.ListTypes())
 		}
 
-		// Extract config from flags
 		config, err := provider.ExtractConfig(cmd, schema)
 		if err != nil {
 			return fmt.Errorf("failed to extract configuration: %w", err)
 		}
 
-		// Create provider instance
 		prov, err := provider.New(providerType)
 		if err != nil {
 			return err
 		}
 
-		// Initialize provider with config
 		if err := prov.Init(config); err != nil {
 			return fmt.Errorf("failed to initialize provider: %w", err)
 		}
 
-		// Execute login command if requested
 		if runLogin {
 			loginProvider, ok := prov.(provider.LoginProvider)
 			if !ok {
@@ -75,7 +94,6 @@ Available provider types: ` + fmt.Sprintf("%v", provider.ListTypes()),
 			fmt.Println("Login successful")
 		}
 
-		// Send request to daemon with provider name and metadata
 		req := protocol.Request{
 			Action: "add",
 			Payload: protocol.AddPayload{
