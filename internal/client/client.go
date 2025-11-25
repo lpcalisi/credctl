@@ -56,7 +56,7 @@ func SendRequest(req protocol.Request) (protocol.Response, error) {
 	if err != nil {
 		return protocol.Response{}, fmt.Errorf("failed to connect to daemon: %w (is the daemon running?)", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	reqJSON, err := json.Marshal(req)
 	if err != nil {

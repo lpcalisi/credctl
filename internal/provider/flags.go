@@ -47,7 +47,7 @@ func AddSchemaFlags(cmd *cobra.Command, schema Schema) {
 
 		// Mark as required if needed
 		if field.Required {
-			cmd.MarkFlagRequired(flagName)
+			_ = cmd.MarkFlagRequired(flagName)
 		}
 	}
 }

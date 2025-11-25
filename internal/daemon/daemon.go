@@ -16,7 +16,7 @@ import (
 )
 
 func handleConn(conn net.Conn, state *State, readOnly bool) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	socketType := "admin"
 	if readOnly {
@@ -46,7 +46,7 @@ func handleConn(conn net.Conn, state *State, readOnly bool) {
 			Error:  fmt.Sprintf("invalid JSON: %v", err),
 		}
 		respJSON, _ := json.Marshal(resp)
-		conn.Write(append(respJSON, '\n'))
+		_, _ = conn.Write(append(respJSON, '\n'))
 		return
 	}
 
@@ -135,7 +135,7 @@ func Run() (*DaemonInfo, error) {
 			LogFile:        logFile,
 		}, nil
 	}
-	defer cntxt.Release()
+	defer func() { _ = cntxt.Release() }()
 
 	// Child process continues here
 	log.Printf("daemon started with PID %d", os.Getpid())
@@ -145,23 +145,23 @@ func Run() (*DaemonInfo, error) {
 		// Socket file exists, try to connect
 		testConn, err := net.Dial("unix", adminSocketPath)
 		if err == nil {
-			testConn.Close()
+			_ = testConn.Close()
 			log.Printf("daemon already running")
 			return nil, nil
 		}
 		// Socket exists but can't connect, remove it
-		os.Remove(adminSocketPath)
+		_ = os.Remove(adminSocketPath)
 	}
 
 	// Remove read-only socket if it exists
-	os.Remove(readOnlySocketPath)
+	_ = os.Remove(readOnlySocketPath)
 
 	// Create admin listener
 	adminListener, err := net.Listen("unix", adminSocketPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create admin listener: %w", err)
 	}
-	defer adminListener.Close()
+	defer func() { _ = adminListener.Close() }()
 
 	// Set admin socket permissions (only owner)
 	if err := os.Chmod(adminSocketPath, 0600); err != nil {
@@ -173,7 +173,7 @@ func Run() (*DaemonInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create read-only listener: %w", err)
 	}
-	defer readOnlyListener.Close()
+	defer func() { _ = readOnlyListener.Close() }()
 
 	// Set read-only socket permissions (owner and group can access)
 	if err := os.Chmod(readOnlySocketPath, 0600); err != nil {
@@ -191,8 +191,8 @@ func Run() (*DaemonInfo, error) {
 
 	// Setup signal handler for cleanup
 	cleanup := func() {
-		os.Remove(adminSocketPath)
-		os.Remove(readOnlySocketPath)
+		_ = os.Remove(adminSocketPath)
+		_ = os.Remove(readOnlySocketPath)
 	}
 	daemon.SetSigHandler(termHandler(cleanup), syscall.SIGTERM)
 	daemon.SetSigHandler(termHandler(cleanup), syscall.SIGINT)

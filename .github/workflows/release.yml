@@ -1,0 +1,111 @@
+name: Release
+
+on:
+  release:
+    types: [created]
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-upload:
+    name: Build and Upload Binaries
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            suffix: linux_amd64
+          - goos: linux
+            goarch: arm64
+            suffix: linux_arm64
+          - goos: linux
+            goarch: arm
+            suffix: linux_arm
+          - goos: darwin
+            goarch: amd64
+            suffix: darwin_amd64
+          - goos: darwin
+            goarch: arm64
+            suffix: darwin_arm64
+          - goos: windows
+            goarch: amd64
+            suffix: windows_amd64.exe
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Get version info
+        id: version
+        run: |
+          echo "version=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          echo "commit=${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "date=$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          BINARY_NAME="credctl_${{ matrix.suffix }}"
+          PKG="sigs.k8s.io/release-utils/version"
+          LDFLAGS="-w -s -buildid= \
+            -X ${PKG}.gitVersion=${{ steps.version.outputs.version }} \
+            -X ${PKG}.gitCommit=${{ steps.version.outputs.commit }} \
+            -X ${PKG}.gitTreeState=clean \
+            -X ${PKG}.buildDate=${{ steps.version.outputs.date }}"
+          
+          go build -ldflags "${LDFLAGS}" -o "${BINARY_NAME}" .
+          
+          # Create checksum
+          sha256sum "${BINARY_NAME}" > "${BINARY_NAME}.sha256"
+
+      - name: Upload binary to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            credctl_${{ matrix.suffix }}
+            credctl_${{ matrix.suffix }}.sha256
+
+  checksums:
+    name: Generate Checksums File
+    runs-on: ubuntu-latest
+    needs: build-and-upload
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: binaries
+          pattern: "*"
+          merge-multiple: true
+        continue-on-error: true
+
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p release-assets
+          gh release download ${{ github.event.release.tag_name }} \
+            --repo ${{ github.repository }} \
+            --pattern "*.sha256" \
+            --dir release-assets
+
+      - name: Combine checksums
+        run: |
+          cat release-assets/*.sha256 > checksums.txt
+          echo "Combined checksums:"
+          cat checksums.txt
+
+      - name: Upload combined checksums
+        uses: softprops/action-gh-release@v2
+        with:
+          files: checksums.txt
+
