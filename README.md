@@ -1,10 +1,10 @@
 # credctl
 
-A tiny SSH-forwardable credential agent for Unix systems (macOS/Linux).
+A tiny credential agent for Unix systems (macOS/Linux) that supports remote access via SSH socket forwarding or direct volume mounting (Linux).
 
 ## Overview
 
-`credctl` is a credential agent daemon that executes commands to retrieve credentials on demand. It supports multiple output formats (raw, env variables, files), interactive login flows, and provides secure remote access via SSH socket forwarding.
+`credctl` is a credential agent daemon that executes commands to retrieve credentials on demand. It supports multiple output formats (raw, env variables, files), interactive login flows, and provides secure remote access via SSH socket forwarding or direct volume mounting (Linux).
 
 ## Installation
 
@@ -105,13 +105,15 @@ curl https://company.com/providers.json | credctl import
 credctl import --overwrite providers.json
 ```
 
-## Remote Usage with SSH
+## Remote Usage
 
 The daemon creates two sockets:
 - **Admin socket**: Full access (add, get, delete)
 - **Read-only socket**: Only get operations
 
-### Setup for SSH forwarding
+### Option 1: SSH Socket Forwarding
+
+This method works across different operating systems (macOS to Linux, etc.).
 
 **1. On your local machine (macOS):**
 
@@ -155,6 +157,31 @@ make build-all             # Build for all platforms
 ```
 
 By forwarding the read-only socket, remote systems can retrieve credentials but cannot execute arbitrary commands on your machine.
+
+### Option 2: Direct Volume Mount (Linux only)
+
+On Linux systems, you can also mount the socket directory directly as a volume. This works because Unix domain sockets are compatible across Linux systems.
+
+**1. Mount the socket directory:**
+
+```bash
+# Mount the entire .credctl directory
+docker run -v $HOME/.credctl:/home/user/.credctl:ro ...
+
+# Or mount just the read-only socket
+docker run -v $HOME/.credctl/agent-readonly.sock:/tmp/credctl.sock:ro ...
+```
+
+**2. In the container:**
+
+```bash
+export CREDCTL_SOCK=/tmp/credctl.sock
+
+# Get credentials
+credctl get gh        # ✓ Works
+```
+
+**Note:** This method only works on Linux systems due to Unix socket compatibility. For cross-platform scenarios (macOS to Linux), use SSH forwarding instead.
 
 ## Provider Types
 
