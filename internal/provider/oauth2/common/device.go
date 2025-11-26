@@ -8,6 +8,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"charm.land/lipgloss/v2"
 )
 
 func requestDeviceAuthorization(deviceEndpoint, clientID string, scopes []string) (*DeviceAuthResponse, error) {
@@ -102,8 +104,12 @@ func AuthenticateDeviceFlow(ctx context.Context, deviceEndpoint, tokenEndpoint, 
 		return nil, err
 	}
 
+	// Style definitions
+	boldStyle := lipgloss.NewStyle().Bold(true)
+	codeStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
+
 	fmt.Fprintln(os.Stderr, "")
-	fmt.Fprintln(os.Stderr, "To authenticate, visit:")
+	fmt.Fprintln(os.Stderr, boldStyle.Render("To authenticate, visit:"))
 
 	verificationURL := deviceAuth.VerificationURIComplete
 	if verificationURL == "" {
@@ -114,27 +120,29 @@ func AuthenticateDeviceFlow(ctx context.Context, deviceEndpoint, tokenEndpoint, 
 	}
 
 	if verificationURL != "" {
+		// Use native ANSI hyperlink (already includes underline in modern terminals)
 		hyperlink := formatHyperlink(verificationURL, verificationURL)
 		fmt.Fprintf(os.Stderr, "  %s\n", hyperlink)
 		if deviceAuth.VerificationURIComplete == "" && deviceAuth.UserCode != "" {
-			fmt.Fprintf(os.Stderr, "\nAnd enter the code: %s\n", deviceAuth.UserCode)
+			fmt.Fprintf(os.Stderr, "\nAnd enter the code: %s\n", codeStyle.Render(deviceAuth.UserCode))
 		}
 	} else {
 		fmt.Fprintln(os.Stderr, "  (URL not provided by server)")
 		if deviceAuth.UserCode != "" {
-			fmt.Fprintf(os.Stderr, "\nUser code: %s\n", deviceAuth.UserCode)
+			fmt.Fprintf(os.Stderr, "\nUser code: %s\n", codeStyle.Render(deviceAuth.UserCode))
 		}
 	}
 
 	fmt.Fprintln(os.Stderr, "")
-	fmt.Fprintln(os.Stderr, "Waiting for authentication...")
+	fmt.Fprintln(os.Stderr, boldStyle.Render("Waiting for authentication..."))
 
 	tokenResp, err := pollForDeviceTokenResponse(ctx, tokenEndpoint, clientID, clientSecret, deviceAuth.DeviceCode, deviceAuth)
 	if err != nil {
 		return nil, err
 	}
 
-	fmt.Fprintln(os.Stderr, "Authentication successful!")
+	successStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("2"))
+	fmt.Fprintln(os.Stderr, successStyle.Render("Authentication successful!"))
 
 	return tokenResp, nil
 }

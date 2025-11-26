@@ -3,14 +3,15 @@ module credctl
 go 1.25.1
 
 require (
+	charm.land/lipgloss/v2 v2.0.0-beta.3.0.20251106193318-19329a3e8410
 	github.com/charmbracelet/fang v0.4.4
 	github.com/sevlyar/go-daemon v0.1.6
 	github.com/spf13/cobra v1.10.1
+	mvdan.cc/sh/v3 v3.12.0
 	sigs.k8s.io/release-utils v0.12.2
 )
 
 require (
-	charm.land/lipgloss/v2 v2.0.0-beta.3.0.20251106193318-19329a3e8410 // indirect
 	github.com/charmbracelet/colorprofile v0.3.3 // indirect
 	github.com/charmbracelet/ultraviolet v0.0.0-20251106190538-99ea45596692 // indirect
 	github.com/charmbracelet/x/ansi v0.11.0 // indirect
@@ -37,5 +38,4 @@ require (
 	golang.org/x/sync v0.17.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/text v0.29.0 // indirect
-	mvdan.cc/sh/v3 v3.12.0 // indirect
 )
