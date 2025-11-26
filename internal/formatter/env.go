@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"mvdan.cc/sh/v3/syntax"
 )
 
 // Env formats the output as shell export statements using heuristics
@@ -45,7 +47,11 @@ func Env(output string, envVar string) (string, error) {
 		return "", fmt.Errorf("invalid env var name: %s", envVar)
 	}
 
-	return fmt.Sprintf("export %s=%s", envVar, shellQuote(output)), nil
+	quoted, err := syntax.Quote(output, syntax.LangBash)
+	if err != nil {
+		return "", fmt.Errorf("failed to quote value: %w", err)
+	}
+	return fmt.Sprintf("export %s=%s", envVar, quoted), nil
 }
 
 // jsonToExports converts a JSON object to export statements
@@ -64,7 +70,12 @@ func jsonToExports(data map[string]interface{}) string {
 			bytes, _ := json.Marshal(v)
 			strValue = string(bytes)
 		}
-		lines = append(lines, fmt.Sprintf("export %s=%s", key, shellQuote(strValue)))
+		quoted, err := syntax.Quote(strValue, syntax.LangBash)
+		if err != nil {
+			// Fallback to simple quoting if syntax.Quote fails
+			quoted = fmt.Sprintf("'%s'", strings.ReplaceAll(strValue, "'", "'\"'\"'"))
+		}
+		lines = append(lines, fmt.Sprintf("export %s=%s", key, quoted))
 	}
 	return strings.Join(lines, "\n")
 }
@@ -85,16 +96,3 @@ func addExportPrefix(output string) string {
 
 	return strings.Join(result, "\n")
 }
-
-// shellQuote quotes a string for safe use in shell
-func shellQuote(s string) string {
-	// If string contains no special characters, return as-is
-	if !strings.ContainsAny(s, " \t\n'\"\\$`!*?[]{}()&|;<>") {
-		return s
-	}
-
-	// Use single quotes and escape any single quotes in the string
-	escaped := strings.ReplaceAll(s, "'", "'\"'\"'")
-	return "'" + escaped + "'"
-}
-

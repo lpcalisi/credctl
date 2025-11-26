@@ -45,6 +45,10 @@ Use --raw to always get the raw credential value.`,
 			}
 
 			if resp.Status == "error" {
+				// Check if it's an authentication required error
+				if resp.Error == "authentication required" {
+					return fmt.Errorf("authentication required for provider '%s'\n\nRun: credctl login %s", name, name)
+				}
 				return fmt.Errorf("error: %s", resp.Error)
 			}
 

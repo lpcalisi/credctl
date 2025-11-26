@@ -24,6 +24,14 @@ type DeletePayload struct {
 	Name string `json:"name"`
 }
 
+// SetTokensPayload is the payload for the "set_tokens" action
+type SetTokensPayload struct {
+	Name         string `json:"name"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token,omitempty"`
+	ExpiresIn    int    `json:"expires_in"` // seconds until expiration
+}
+
 // Response represents a response from the daemon
 type Response struct {
 	Status  string      `json:"status"`

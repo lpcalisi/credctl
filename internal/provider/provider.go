@@ -1,6 +1,14 @@
 package provider
 
-import "context"
+import (
+	"context"
+	"errors"
+)
+
+var (
+	// ErrAuthenticationRequired is returned by Get() when interactive authentication is required
+	ErrAuthenticationRequired = errors.New("authentication required")
+)
 
 // Provider is the interface that all credential providers must implement
 type Provider interface {
@@ -26,4 +34,15 @@ type LoginProvider interface {
 
 	// Login performs interactive authentication for this provider
 	Login(ctx context.Context) error
+}
+
+// TokenCacheProvider is an optional interface for providers that cache tokens in memory
+type TokenCacheProvider interface {
+	Provider
+
+	// SetTokens sets the cached tokens for this provider
+	SetTokens(accessToken, refreshToken string, expiresIn int)
+
+	// GetTokens returns the current cached tokens (for sending to daemon after login)
+	GetTokens() (accessToken, refreshToken string, expiresIn int)
 }
