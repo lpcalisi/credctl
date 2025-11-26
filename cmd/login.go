@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"credctl/internal/client"
@@ -23,10 +24,39 @@ func Login() *cobra.Command {
 				return fmt.Errorf("provider name cannot be empty")
 			}
 
-			// Load provider from disk
-			prov, err := provider.Load(name)
-			if err != nil {
-				return fmt.Errorf("failed to load provider: %w", err)
+			// Try to get provider info from daemon first
+			req := protocol.Request{
+				Action: "describe",
+				Payload: protocol.DescribePayload{
+					Name: name,
+				},
+			}
+
+			resp, err := client.SendRequest(req)
+			var prov provider.Provider
+			if err == nil && resp.Status == "ok" {
+				// Successfully got provider info from daemon
+				payloadBytes, err := json.Marshal(resp.Payload)
+				if err != nil {
+					return fmt.Errorf("failed to parse daemon response: %w", err)
+				}
+
+				var describeResp protocol.DescribeResponsePayload
+				if err := json.Unmarshal(payloadBytes, &describeResp); err != nil {
+					return fmt.Errorf("failed to parse daemon response: %w", err)
+				}
+
+				// Create provider instance from daemon info
+				prov, err = provider.FromMetadata(describeResp.Type, describeResp.Metadata)
+				if err != nil {
+					return fmt.Errorf("failed to create provider from daemon info: %w", err)
+				}
+			} else {
+				// Daemon approach failed, try loading from disk
+				prov, err = provider.Load(name)
+				if err != nil {
+					return fmt.Errorf("failed to load provider: %w", err)
+				}
 			}
 
 			// Check if provider supports login

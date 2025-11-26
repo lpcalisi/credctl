@@ -230,3 +230,47 @@ func SetTokens(state *State, payload interface{}, readOnly bool) protocol.Respon
 		Status: "ok",
 	}
 }
+
+func Describe(state *State, payload interface{}, readOnly bool) protocol.Response {
+	// Describe operation is allowed in both modes (no permission check needed)
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return protocol.Response{
+			Status: "error",
+			Error:  fmt.Sprintf("invalid payload: %v", err),
+		}
+	}
+
+	var describePayload protocol.DescribePayload
+	if err := json.Unmarshal(payloadBytes, &describePayload); err != nil {
+		return protocol.Response{
+			Status: "error",
+			Error:  fmt.Sprintf("invalid payload: %v", err),
+		}
+	}
+
+	if describePayload.Name == "" {
+		return protocol.Response{
+			Status: "error",
+			Error:  "provider name cannot be empty",
+		}
+	}
+
+	// Get provider from state
+	prov, err := state.Get(describePayload.Name)
+	if err != nil {
+		return protocol.Response{
+			Status: "error",
+			Error:  fmt.Sprintf("provider not found: %s", describePayload.Name),
+		}
+	}
+
+	// Return provider type and metadata
+	return protocol.Response{
+		Status: "ok",
+		Payload: protocol.DescribeResponsePayload{
+			Type:     prov.Type(),
+			Metadata: prov.Metadata(),
+		},
+	}
+}

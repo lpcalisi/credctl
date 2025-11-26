@@ -62,6 +62,8 @@ func handleConn(conn net.Conn, state *State, readOnly bool) {
 		resp = Delete(state, req.Payload, readOnly)
 	case "set_tokens":
 		resp = SetTokens(state, req.Payload, readOnly)
+	case "describe":
+		resp = Describe(state, req.Payload, readOnly)
 	default:
 		resp = protocol.Response{
 			Status: "error",

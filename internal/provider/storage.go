@@ -83,20 +83,24 @@ func Load(name string) (Provider, error) {
 	return migrateOldFormat(name, data)
 }
 
-// loadFromStored creates a provider from the stored format
-func loadFromStored(stored StoredProvider) (Provider, error) {
-	// Create provider instance
-	prov, err := New(stored.Type)
+// FromMetadata creates a provider instance from type and metadata
+// This is useful when reconstructing providers from serialized data (e.g., from daemon)
+func FromMetadata(providerType string, metadata map[string]any) (Provider, error) {
+	prov, err := New(providerType)
 	if err != nil {
 		return nil, err
 	}
 
-	// Initialize with stored data
-	if err := prov.Init(stored.Data); err != nil {
+	if err := prov.Init(metadata); err != nil {
 		return nil, fmt.Errorf("failed to initialize provider: %w", err)
 	}
 
 	return prov, nil
+}
+
+// loadFromStored creates a provider from the stored format
+func loadFromStored(stored StoredProvider) (Provider, error) {
+	return FromMetadata(stored.Type, stored.Data)
 }
 
 // migrateOldFormat migrates an old provider format to new format
