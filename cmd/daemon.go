@@ -26,6 +26,7 @@ To configure your shell, run:
 
 			// Print ssh-agent style output
 			fmt.Printf("CREDCTL_SOCK=%s; export CREDCTL_SOCK;\n", info.AdminSocket)
+			fmt.Printf("CREDCTL_RO_SOCK=%s; export CREDCTL_RO_SOCK;\n", info.ReadOnlySocket)
 			fmt.Printf("CREDCTL_PID=%d; export CREDCTL_PID;\n", info.PID)
 			fmt.Printf("CREDCTL_LOGS=%s; export CREDCTL_LOGS;\n", info.LogFile)
 			fmt.Printf("echo Agent pid %d;\n", info.PID)
