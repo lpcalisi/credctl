@@ -82,4 +82,3 @@ func SendRequest(req protocol.Request) (protocol.Response, error) {
 
 	return resp, nil
 }
-

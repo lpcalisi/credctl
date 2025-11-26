@@ -3,6 +3,8 @@ package formatter
 import (
 	"strings"
 	"testing"
+
+	"mvdan.cc/sh/v3/syntax"
 )
 
 func TestEnv(t *testing.T) {
@@ -25,7 +27,7 @@ func TestEnv(t *testing.T) {
 			name:    "JSON object with null value",
 			output:  `{"KEY": null}`,
 			envVar:  "",
-			want:    "export KEY=",
+			want:    "export KEY=''",
 			wantErr: false,
 		},
 		{
@@ -107,7 +109,7 @@ func TestEnv(t *testing.T) {
 			name:    "raw token with single quotes",
 			output:  "it's a token",
 			envVar:  "MY_TOKEN",
-			want:    `export MY_TOKEN='it'"'"'s a token'`,
+			want:    `export MY_TOKEN="it's a token"`,
 			wantErr: false,
 		},
 
@@ -139,7 +141,7 @@ func TestEnv(t *testing.T) {
 			name:    "empty output becomes raw token",
 			output:  "",
 			envVar:  "EMPTY",
-			want:    "export EMPTY=",
+			want:    "export EMPTY=''",
 			wantErr: false,
 		},
 		{
@@ -153,7 +155,7 @@ func TestEnv(t *testing.T) {
 			name:    "token with newline character",
 			output:  "multi\nline",
 			envVar:  "TOKEN",
-			want:    "export TOKEN='multi\nline'",
+			want:    "export TOKEN=$'multi\\nline'",
 			wantErr: false,
 		},
 	}
@@ -300,7 +302,7 @@ func TestShellQuote(t *testing.T) {
 		{
 			name: "string with single quote",
 			s:    "it's",
-			want: `'it'"'"'s'`,
+			want: `"it's"`,
 		},
 		{
 			name: "string with dollar sign",
@@ -320,17 +322,17 @@ func TestShellQuote(t *testing.T) {
 		{
 			name: "empty string",
 			s:    "",
-			want: "",
+			want: "''",
 		},
 		{
 			name: "string with newline",
 			s:    "line1\nline2",
-			want: "'line1\nline2'",
+			want: "$'line1\\nline2'",
 		},
 		{
 			name: "string with tab",
 			s:    "col1\tcol2",
-			want: "'col1\tcol2'",
+			want: "$'col1\\tcol2'",
 		},
 		{
 			name: "alphanumeric with dash and underscore",
@@ -341,9 +343,13 @@ func TestShellQuote(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := shellQuote(tt.s)
+			got, err := syntax.Quote(tt.s, syntax.LangBash)
+			if err != nil {
+				t.Errorf("syntax.Quote(%q) error: %v", tt.s, err)
+				return
+			}
 			if got != tt.want {
-				t.Errorf("shellQuote(%q) = %q, want %q", tt.s, got, tt.want)
+				t.Errorf("syntax.Quote(%q) = %q, want %q", tt.s, got, tt.want)
 			}
 		})
 	}

@@ -79,12 +79,8 @@ func (s *State) Get(name string) (provider.Provider, error) {
 
 	prov, exists := s.providers[name]
 	if !exists {
-		// Try loading from disk as fallback
-		diskProv, err := provider.Load(name)
-		if err != nil {
-			return nil, err
-		}
-		return diskProv, nil
+		// Try loading from disk as fallback (Load already sets the name)
+		return provider.Load(name)
 	}
 
 	return prov, nil

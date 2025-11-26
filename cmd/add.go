@@ -7,7 +7,6 @@ import (
 	"credctl/internal/client"
 	"credctl/internal/protocol"
 	"credctl/internal/provider"
-	_ "credctl/internal/provider/command" // Import to register provider
 
 	"github.com/spf13/cobra"
 )
@@ -32,6 +31,14 @@ Available provider types: ` + fmt.Sprintf("%v", provider.ListTypes()),
 			// Handle --help manually since DisableFlagParsing is true
 			for _, arg := range args {
 				if arg == "--help" || arg == "-h" {
+					// If we have a provider type, show help with its flags
+					if len(args) >= 1 && args[0] != "--help" && args[0] != "-h" {
+						providerType := args[0]
+						if provider.IsRegistered(providerType) {
+							schema, _ := provider.GetSchema(providerType)
+							provider.AddSchemaFlags(cmd, schema)
+						}
+					}
 					_ = cmd.Help()
 					os.Exit(0)
 				}
@@ -55,6 +62,13 @@ Available provider types: ` + fmt.Sprintf("%v", provider.ListTypes()),
 			if !provider.IsRegistered(providerType) {
 				return fmt.Errorf("unknown provider type '%s'\nAvailable types: %v", providerType, provider.ListTypes())
 			}
+
+			// Register flags only for the specific provider type
+			schema, err := provider.GetSchema(providerType)
+			if err != nil {
+				return err
+			}
+			provider.AddSchemaFlags(cmd, schema)
 
 			cmd.DisableFlagParsing = false
 			return cmd.ParseFlags(args)
@@ -121,9 +135,6 @@ Available provider types: ` + fmt.Sprintf("%v", provider.ListTypes()),
 
 	cmd.Flags().BoolVar(&runLogin, "run-login", false, "Execute the login command before adding the provider")
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Overwrite existing provider")
-
-	// Add flags for all registered provider types
-	provider.AddAllProviderFlags(cmd)
 
 	return cmd
 }

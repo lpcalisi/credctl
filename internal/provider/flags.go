@@ -128,16 +128,3 @@ func ExtractConfig(cmd *cobra.Command, schema Schema) (map[string]any, error) {
 
 	return config, nil
 }
-
-// AddAllProviderFlags adds flags for all registered provider types
-// Panics if there's a flag collision between providers
-func AddAllProviderFlags(cmd *cobra.Command) {
-	for _, provType := range ListTypes() {
-		schema, err := GetSchema(provType)
-		if err != nil {
-			continue
-		}
-		// Add flags without prefix - will panic on collision
-		AddSchemaFlags(cmd, schema)
-	}
-}

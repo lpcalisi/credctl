@@ -8,7 +8,6 @@ import (
 
 	"credctl/internal/protocol"
 	"credctl/internal/provider"
-	_ "credctl/internal/provider/command" // Import to register providers
 )
 
 // Add processes an "add" request
@@ -116,6 +115,13 @@ func Get(state *State, payload interface{}, readOnly bool) protocol.Response {
 
 	output, err := prov.Get(ctx)
 	if err != nil {
+		// Check if it's an authentication required error
+		if err == provider.ErrAuthenticationRequired {
+			return protocol.Response{
+				Status: "error",
+				Error:  "authentication required",
+			}
+		}
 		return protocol.Response{
 			Status: "error",
 			Error:  fmt.Sprintf("failed to get credential: %v", err),
@@ -172,6 +178,57 @@ func Delete(state *State, payload interface{}, readOnly bool) protocol.Response 
 			Error:  fmt.Sprintf("failed to delete provider: %v", err),
 		}
 	}
+
+	return protocol.Response{
+		Status: "ok",
+	}
+}
+
+// SetTokens processes a "set_tokens" request
+func SetTokens(state *State, payload interface{}, readOnly bool) protocol.Response {
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return protocol.Response{
+			Status: "error",
+			Error:  fmt.Sprintf("invalid payload: %v", err),
+		}
+	}
+
+	var tokensPayload protocol.SetTokensPayload
+	if err := json.Unmarshal(payloadBytes, &tokensPayload); err != nil {
+		return protocol.Response{
+			Status: "error",
+			Error:  fmt.Sprintf("invalid payload: %v", err),
+		}
+	}
+
+	if tokensPayload.Name == "" {
+		return protocol.Response{
+			Status: "error",
+			Error:  "provider name cannot be empty",
+		}
+	}
+
+	// Get provider from state
+	prov, err := state.Get(tokensPayload.Name)
+	if err != nil {
+		return protocol.Response{
+			Status: "error",
+			Error:  fmt.Sprintf("provider not found: %s", tokensPayload.Name),
+		}
+	}
+
+	// Check if provider supports token caching
+	tokenCacheProv, ok := prov.(provider.TokenCacheProvider)
+	if !ok {
+		return protocol.Response{
+			Status: "error",
+			Error:  fmt.Sprintf("provider '%s' does not support token caching", tokensPayload.Name),
+		}
+	}
+
+	// Set the tokens
+	tokenCacheProv.SetTokens(tokensPayload.AccessToken, tokensPayload.RefreshToken, tokensPayload.ExpiresIn)
 
 	return protocol.Response{
 		Status: "ok",

@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"credctl/internal/client"
@@ -25,42 +24,7 @@ func Login() *cobra.Command {
 				return fmt.Errorf("provider name cannot be empty")
 			}
 
-			// Get provider from daemon
-			req := protocol.Request{
-				Action: "get",
-				Payload: protocol.GetPayload{
-					Name: name,
-				},
-			}
-
-			resp, err := client.SendRequest(req)
-			if err != nil {
-				return err
-			}
-
-			if resp.Status == "error" {
-				return fmt.Errorf("error: %s", resp.Error)
-			}
-
-			// Extract metadata and type from response
-			payloadBytes, err := json.Marshal(resp.Payload)
-			if err != nil {
-				return fmt.Errorf("failed to parse response: %w", err)
-			}
-
-			var getRespPayload protocol.GetResponsePayload
-			if err := json.Unmarshal(payloadBytes, &getRespPayload); err != nil {
-				return fmt.Errorf("failed to parse response: %w", err)
-			}
-
-			metadata := getRespPayload.Metadata
-			if metadata == nil {
-				return fmt.Errorf("provider data not found")
-			}
-
-			// Get provider type from metadata (should be included in GetResponsePayload)
-			// For now, we need to load the provider to check if it supports login
-			// We'll load it from disk directly
+			// Load provider from disk
 			prov, err := provider.Load(name)
 			if err != nil {
 				return fmt.Errorf("failed to load provider: %w", err)
@@ -76,6 +40,31 @@ func Login() *cobra.Command {
 			fmt.Printf("Running login for provider '%s'...\n", name)
 			if err := loginProvider.Login(cmd.Context()); err != nil {
 				return fmt.Errorf("login failed: %w", err)
+			}
+
+			// If provider supports token caching, send tokens to daemon
+			if tokenCacheProv, ok := prov.(provider.TokenCacheProvider); ok {
+				accessToken, refreshToken, expiresIn := tokenCacheProv.GetTokens()
+				if accessToken != "" {
+					// Send tokens to daemon
+					req := protocol.Request{
+						Action: "set_tokens",
+						Payload: protocol.SetTokensPayload{
+							Name:         name,
+							AccessToken:  accessToken,
+							RefreshToken: refreshToken,
+							ExpiresIn:    expiresIn,
+						},
+					}
+
+					resp, err := client.SendRequest(req)
+					if err != nil {
+						// Log warning but don't fail - login was successful
+						fmt.Printf("Warning: failed to sync tokens with daemon: %v\n", err)
+					} else if resp.Status == "error" {
+						fmt.Printf("Warning: daemon rejected tokens: %s\n", resp.Error)
+					}
+				}
 			}
 
 			fmt.Printf("Login successful for provider '%s'\n", name)
