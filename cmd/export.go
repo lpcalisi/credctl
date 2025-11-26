@@ -16,44 +16,45 @@ type ExportedProvider struct {
 	Data map[string]any `json:"data"`
 }
 
-var exportCmd = &cobra.Command{
-	Use:   "export",
-	Short: "Export all providers to JSON",
-	Long:  `Export all credential providers to JSON format for backup or distribution.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		// List all providers
-		names, err := provider.List()
-		if err != nil {
-			return fmt.Errorf("failed to list providers: %w", err)
-		}
-
-		// Load all providers
-		var exported []ExportedProvider
-		for _, name := range names {
-			prov, err := provider.Load(name)
+// Export returns the export command
+func Export() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "export",
+		Short: "Export all providers to JSON",
+		Long:  `Export all credential providers to JSON format for backup or distribution.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// List all providers
+			names, err := provider.List()
 			if err != nil {
-				return fmt.Errorf("failed to load provider %s: %w", name, err)
+				return fmt.Errorf("failed to list providers: %w", err)
 			}
 
-			exported = append(exported, ExportedProvider{
-				Name: name,
-				Type: prov.Type(),
-				Data: prov.Metadata(),
-			})
-		}
+			// Load all providers
+			var exported []ExportedProvider
+			for _, name := range names {
+				prov, err := provider.Load(name)
+				if err != nil {
+					return fmt.Errorf("failed to load provider %s: %w", name, err)
+				}
 
-		// Marshal to JSON with indentation
-		data, err := json.MarshalIndent(exported, "", "  ")
-		if err != nil {
-			return fmt.Errorf("failed to marshal providers: %w", err)
-		}
+				exported = append(exported, ExportedProvider{
+					Name: name,
+					Type: prov.Type(),
+					Data: prov.Metadata(),
+				})
+			}
 
-		// Output to stdout
-		fmt.Println(string(data))
-		return nil
-	},
-}
+			// Marshal to JSON with indentation
+			data, err := json.MarshalIndent(exported, "", "  ")
+			if err != nil {
+				return fmt.Errorf("failed to marshal providers: %w", err)
+			}
 
-func init() {
-	rootCmd.AddCommand(exportCmd)
+			// Output to stdout
+			fmt.Println(string(data))
+			return nil
+		},
+	}
+
+	return cmd
 }
