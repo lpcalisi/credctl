@@ -15,6 +15,7 @@ import (
 // Add returns the add command
 func Add() *cobra.Command {
 	var runLogin bool
+	var force bool
 
 	cmd := &cobra.Command{
 		Use:   "add <type> <name>",
@@ -100,6 +101,7 @@ Available provider types: ` + fmt.Sprintf("%v", provider.ListTypes()),
 					Name:     name,
 					Type:     prov.Type(),
 					Metadata: prov.Metadata(),
+					Force:    force,
 				},
 			}
 
@@ -118,6 +120,7 @@ Available provider types: ` + fmt.Sprintf("%v", provider.ListTypes()),
 	}
 
 	cmd.Flags().BoolVar(&runLogin, "run-login", false, "Execute the login command before adding the provider")
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "Overwrite existing provider")
 
 	// Add flags for all registered provider types
 	provider.AddAllProviderFlags(cmd)

@@ -50,7 +50,7 @@ func (s *State) LoadAll() error {
 }
 
 // Add adds a provider to memory and persists it to disk
-func (s *State) Add(name string, prov provider.Provider) error {
+func (s *State) Add(name string, prov provider.Provider, force bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -58,7 +58,7 @@ func (s *State) Add(name string, prov provider.Provider) error {
 	if err != nil {
 		return fmt.Errorf("failed to check provider existence: %w", err)
 	}
-	if exists {
+	if exists && !force {
 		return fmt.Errorf("provider '%s' already exists", name)
 	}
 

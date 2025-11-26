@@ -70,7 +70,7 @@ func Add(state *State, payload interface{}, readOnly bool) protocol.Response {
 	}
 
 	// Add provider (saves to disk and memory)
-	if err := state.Add(addPayload.Name, prov); err != nil {
+	if err := state.Add(addPayload.Name, prov, addPayload.Force); err != nil {
 		return protocol.Response{
 			Status: "error",
 			Error:  fmt.Sprintf("failed to add provider: %v", err),

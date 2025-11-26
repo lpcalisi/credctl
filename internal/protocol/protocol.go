@@ -11,6 +11,7 @@ type AddPayload struct {
 	Name     string         `json:"name"`
 	Type     string         `json:"type"`
 	Metadata map[string]any `json:"metadata"`
+	Force    bool           `json:"force,omitempty"`
 }
 
 // GetPayload is the payload for the "get" action
