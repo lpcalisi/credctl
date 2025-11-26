@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Login returns the login command
 func Login() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "login <name>",

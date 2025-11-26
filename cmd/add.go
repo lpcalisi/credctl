@@ -11,7 +11,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Add returns the add command
 func Add() *cobra.Command {
 	var runLogin bool
 	var force bool

@@ -9,7 +9,7 @@ import (
 	"credctl/internal/provider/oauth2/common"
 )
 
-// ClientProvider implements the Provider interface for OIDC Client Credentials Grant
+// ClientProvider implements OIDC Client Credentials Grant flow
 type ClientProvider struct {
 	issuer        string
 	clientID      string
@@ -25,12 +25,10 @@ func init() {
 	})
 }
 
-// Type returns the provider type identifier
 func (p *ClientProvider) Type() string {
 	return provider.ProviderOIDCClient
 }
 
-// Schema returns the configuration schema for the Client Credentials provider
 func (p *ClientProvider) Schema() provider.Schema {
 	return provider.Schema{
 		Fields: []provider.FieldDef{
@@ -112,7 +110,6 @@ func (p *ClientProvider) Get(ctx context.Context) ([]byte, error) {
 	return []byte(tokens.AccessToken), nil
 }
 
-// Metadata returns provider metadata for serialization
 func (p *ClientProvider) Metadata() map[string]any {
 	metadata := map[string]any{
 		provider.MetadataClientID:     p.clientID,
@@ -140,7 +137,6 @@ func (p *ClientProvider) SetTokens(accessToken, refreshToken string, expiresIn i
 	}
 }
 
-// GetTokens returns the current cached tokens (implements TokenCacheProvider)
 func (p *ClientProvider) GetTokens() (accessToken, refreshToken string, expiresIn int) {
 	if p.tokens == nil {
 		return "", "", 0

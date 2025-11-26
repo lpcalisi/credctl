@@ -9,7 +9,7 @@ import (
 	"credctl/internal/provider/oauth2/common"
 )
 
-// PKCEProvider implements the Provider interface for OIDC Authorization Code with PKCE
+// PKCEProvider implements OIDC Authorization Code with PKCE flow
 type PKCEProvider struct {
 	issuer        string
 	clientID      string
@@ -28,12 +28,10 @@ func init() {
 	})
 }
 
-// Type returns the provider type identifier
 func (p *PKCEProvider) Type() string {
 	return provider.ProviderOIDCPKCE
 }
 
-// Schema returns the configuration schema for the PKCE provider
 func (p *PKCEProvider) Schema() provider.Schema {
 	return provider.Schema{
 		Fields: []provider.FieldDef{
@@ -146,7 +144,6 @@ func (p *PKCEProvider) Get(ctx context.Context) ([]byte, error) {
 	return nil, provider.ErrAuthenticationRequired
 }
 
-// Metadata returns provider metadata for serialization
 func (p *PKCEProvider) Metadata() map[string]any {
 	metadata := map[string]any{
 		provider.MetadataClientID:     p.clientID,
@@ -183,7 +180,6 @@ func (p *PKCEProvider) SetTokens(accessToken, refreshToken string, expiresIn int
 	}
 }
 
-// GetTokens returns the current cached tokens (implements TokenCacheProvider)
 func (p *PKCEProvider) GetTokens() (accessToken, refreshToken string, expiresIn int) {
 	if p.tokens == nil {
 		return "", "", 0

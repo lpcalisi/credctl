@@ -10,7 +10,6 @@ import (
 	"credctl/internal/provider"
 )
 
-// Add processes an "add" request
 func Add(state *State, payload interface{}, readOnly bool) protocol.Response {
 	// Check permissions
 	if readOnly {
@@ -81,7 +80,6 @@ func Add(state *State, payload interface{}, readOnly bool) protocol.Response {
 	}
 }
 
-// Get processes a "get" request
 func Get(state *State, payload interface{}, readOnly bool) protocol.Response {
 	// Get operation is allowed in both modes (no permission check needed)
 	payloadBytes, err := json.Marshal(payload)
@@ -138,7 +136,6 @@ func Get(state *State, payload interface{}, readOnly bool) protocol.Response {
 	}
 }
 
-// Delete processes a "delete" request
 func Delete(state *State, payload interface{}, readOnly bool) protocol.Response {
 	// Check permissions
 	if readOnly {
@@ -184,7 +181,6 @@ func Delete(state *State, payload interface{}, readOnly bool) protocol.Response 
 	}
 }
 
-// SetTokens processes a "set_tokens" request
 func SetTokens(state *State, payload interface{}, readOnly bool) protocol.Response {
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {

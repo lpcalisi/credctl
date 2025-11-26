@@ -11,7 +11,7 @@ import (
 	"credctl/internal/provider"
 )
 
-// CommandProvider implements the Provider interface for command-based credentials
+// CommandProvider executes shell commands to retrieve credentials
 type CommandProvider struct {
 	command      string
 	format       string
@@ -22,18 +22,15 @@ type CommandProvider struct {
 }
 
 func init() {
-	// Register this provider type with the registry
 	provider.Register("command", func() provider.Provider {
 		return &CommandProvider{}
 	})
 }
 
-// Type returns the provider type identifier
 func (p *CommandProvider) Type() string {
 	return "command"
 }
 
-// Schema returns the configuration schema for the command provider
 func (p *CommandProvider) Schema() provider.Schema {
 	return provider.Schema{
 		Fields: []provider.FieldDef{
@@ -110,7 +107,6 @@ func (p *CommandProvider) Get(ctx context.Context) ([]byte, error) {
 	return []byte(result), nil
 }
 
-// Metadata returns provider metadata for serialization
 func (p *CommandProvider) Metadata() map[string]any {
 	metadata := map[string]any{
 		provider.MetadataCommand: p.command,
@@ -135,27 +131,22 @@ func (p *CommandProvider) Metadata() map[string]any {
 
 // Export helper functions that were previously in the Provider struct
 
-// GetFormat returns the output format
 func (p *CommandProvider) GetFormat() string {
 	return p.format
 }
 
-// GetEnvVar returns the environment variable name
 func (p *CommandProvider) GetEnvVar() string {
 	return p.envVar
 }
 
-// GetFilePath returns the file path
 func (p *CommandProvider) GetFilePath() string {
 	return p.filePath
 }
 
-// GetFileMode returns the file mode
 func (p *CommandProvider) GetFileMode() string {
 	return p.fileMode
 }
 
-// GetLoginCommand returns the login command
 func (p *CommandProvider) GetLoginCommand() string {
 	return p.loginCommand
 }

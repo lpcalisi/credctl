@@ -9,7 +9,7 @@ import (
 	"credctl/internal/provider/oauth2/common"
 )
 
-// DeviceProvider implements the Provider and LoginProvider interfaces for OIDC Device Authorization Grant
+// DeviceProvider implements OIDC Device Authorization Grant flow
 type DeviceProvider struct {
 	issuer         string
 	clientID       string
@@ -26,12 +26,10 @@ func init() {
 	})
 }
 
-// Type returns the provider type identifier
 func (p *DeviceProvider) Type() string {
 	return provider.ProviderOIDCDevice
 }
 
-// Schema returns the configuration schema for the Device provider
 func (p *DeviceProvider) Schema() provider.Schema {
 	return provider.Schema{
 		Fields: []provider.FieldDef{
@@ -128,8 +126,6 @@ func (p *DeviceProvider) Get(ctx context.Context) ([]byte, error) {
 	return nil, provider.ErrAuthenticationRequired
 }
 
-// Login performs interactive authentication for this provider
-// This implements the LoginProvider interface
 func (p *DeviceProvider) Login(ctx context.Context) error {
 	tokens, err := p.authenticate(ctx)
 	if err != nil {
@@ -139,7 +135,6 @@ func (p *DeviceProvider) Login(ctx context.Context) error {
 	return nil
 }
 
-// Metadata returns provider metadata for serialization
 func (p *DeviceProvider) Metadata() map[string]any {
 	metadata := map[string]any{
 		provider.MetadataClientID: p.clientID,
@@ -172,7 +167,6 @@ func (p *DeviceProvider) SetTokens(accessToken, refreshToken string, expiresIn i
 	}
 }
 
-// GetTokens returns the current cached tokens (implements TokenCacheProvider)
 func (p *DeviceProvider) GetTokens() (accessToken, refreshToken string, expiresIn int) {
 	if p.tokens == nil {
 		return "", "", 0

@@ -45,7 +45,6 @@ func ResolveSocketPath() (string, error) {
 	return "", fmt.Errorf("no credctl socket found (is the daemon running?)")
 }
 
-// SendRequest sends a request to the daemon and returns the response
 func SendRequest(req protocol.Request) (protocol.Response, error) {
 	socketPath, err := ResolveSocketPath()
 	if err != nil {

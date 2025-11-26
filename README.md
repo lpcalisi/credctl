@@ -63,10 +63,19 @@ This exports `CREDCTL_SOCK`, `CREDCTL_PID`, and `CREDCTL_LOGS` environment varia
 ### 2. Add credential providers
 
 ```bash
-# GitHub token with interactive login
+# Command provider (GitHub CLI example)
 credctl add command gh --command "gh auth token" \
   --login_command "gh auth login --web --clipboard -p https" \
   --run-login
+
+# OIDC provider with PKCE flow (Google example)
+credctl add oidc-pkce google --issuer https://accounts.google.com \
+  --client_id YOUR_CLIENT_ID
+
+# OAuth2 provider with device flow (GitHub example)
+credctl add oauth2-device github --client_id YOUR_CLIENT_ID \
+  --device_endpoint https://github.com/login/device/code \
+  --token_endpoint https://github.com/login/oauth/access_token
 ```
 
 ### 3. Get credentials
@@ -146,6 +155,43 @@ make build-all             # Build for all platforms
 ```
 
 By forwarding the read-only socket, remote systems can retrieve credentials but cannot execute arbitrary commands on your machine.
+
+## Provider Types
+
+### Command Provider
+Executes shell commands to retrieve credentials.
+
+```bash
+credctl add command <name> --command "<command>" [--login_command "<command>"]
+```
+
+### OIDC Providers
+OpenID Connect providers with discovery support and ID Token validation.
+
+- **oidc-pkce**: Authorization Code with PKCE flow (browser-based)
+- **oidc-device**: Device Authorization Grant flow (device code)
+- **oidc-client**: Client Credentials Grant flow (server-to-server)
+
+```bash
+# With issuer (auto-discovery)
+credctl add oidc-pkce <name> --issuer <issuer_url> --client_id <id>
+
+# With explicit endpoints
+credctl add oidc-pkce <name> --client_id <id> \
+  --auth_endpoint <url> --token_endpoint <url>
+```
+
+### OAuth2 Providers
+OAuth2 providers without OIDC features (no discovery, no ID Tokens).
+
+- **oauth2-pkce**: Authorization Code with PKCE flow
+- **oauth2-device**: Device Authorization Grant flow
+- **oauth2-client**: Client Credentials Grant flow
+
+```bash
+credctl add oauth2-device <name> --client_id <id> \
+  --device_endpoint <url> --token_endpoint <url>
+```
 
 ## Viewing Logs
 

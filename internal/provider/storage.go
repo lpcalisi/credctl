@@ -147,7 +147,6 @@ func Delete(name string) error {
 	return nil
 }
 
-// List returns all provider names
 func List() ([]string, error) {
 	dir, err := ProvidersDir()
 	if err != nil {
