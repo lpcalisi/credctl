@@ -34,10 +34,18 @@ type SetTokensPayload struct {
 
 // Response represents a response from the daemon
 type Response struct {
-	Status  string      `json:"status"`
-	Error   string      `json:"error,omitempty"`
-	Payload interface{} `json:"payload,omitempty"`
+	Status    string      `json:"status"`
+	Error     string      `json:"error,omitempty"`
+	ErrorType string      `json:"error_type,omitempty"` // Type of error for client handling
+	Payload   interface{} `json:"payload,omitempty"`
 }
+
+// Error types for structured error handling
+const (
+	ErrorTypeAuthRequired       = "auth_required"
+	ErrorTypeDeviceFlowRequired = "device_flow_required"
+	ErrorTypeGeneric            = "generic"
+)
 
 // GetResponsePayload is the payload of response for "get"
 type GetResponsePayload struct {

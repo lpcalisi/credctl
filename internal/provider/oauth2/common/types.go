@@ -1,6 +1,10 @@
 package common
 
-import "time"
+import (
+	"time"
+
+	"golang.org/x/oauth2"
+)
 
 const DefaultTokenExpiry = 365 * 24 * 60 * 60
 
@@ -9,37 +13,7 @@ type TokenCache struct {
 	RefreshToken string
 	TokenType    string
 	ExpiresAt    time.Time
-}
-
-type TokenResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token,omitempty"`
-	IDToken      string `json:"id_token,omitempty"`
-	TokenType    string `json:"token_type"`
-	ExpiresIn    int    `json:"expires_in"`
-	Scope        string `json:"scope,omitempty"`
-	Error        string `json:"error,omitempty"`
-	ErrorDesc    string `json:"error_description,omitempty"`
-}
-
-type DeviceAuthResponse struct {
-	DeviceCode              string `json:"device_code"`
-	UserCode                string `json:"user_code"`
-	VerificationURI         string `json:"verification_uri"`
-	VerificationURL         string `json:"verification_url"`
-	VerificationURIComplete string `json:"verification_uri_complete,omitempty"`
-	ExpiresIn               int    `json:"expires_in"`
-	Interval                int    `json:"interval"`
-	Error                   string `json:"error,omitempty"`
-	ErrorDescription        string `json:"error_description,omitempty"`
-}
-
-type PKCEFlowParams struct {
-	AuthEndpoint string
-	ClientID     string
-	Scopes       []string
-	RedirectURI  string
-	RedirectPort int
+	IDToken      string // For OIDC flows
 }
 
 func NormalizeExpiresIn(expiresIn int) int {
@@ -47,4 +21,44 @@ func NormalizeExpiresIn(expiresIn int) int {
 		return DefaultTokenExpiry
 	}
 	return expiresIn
+}
+
+// OAuth2TokenToCache converts an oauth2.Token to a TokenCache
+func OAuth2TokenToCache(token *oauth2.Token) *TokenCache {
+	cache := &TokenCache{
+		AccessToken:  token.AccessToken,
+		RefreshToken: token.RefreshToken,
+		TokenType:    token.TokenType,
+		ExpiresAt:    token.Expiry,
+	}
+
+	// Extract ID token if present (for OIDC flows)
+	if idToken, ok := token.Extra("id_token").(string); ok {
+		cache.IDToken = idToken
+	}
+
+	// Normalize expiry if not set
+	if cache.ExpiresAt.IsZero() {
+		cache.ExpiresAt = time.Now().Add(time.Duration(DefaultTokenExpiry) * time.Second)
+	}
+
+	return cache
+}
+
+// ToOAuth2Token converts a TokenCache to an oauth2.Token
+func (tc *TokenCache) ToOAuth2Token() *oauth2.Token {
+	token := &oauth2.Token{
+		AccessToken:  tc.AccessToken,
+		RefreshToken: tc.RefreshToken,
+		TokenType:    tc.TokenType,
+		Expiry:       tc.ExpiresAt,
+	}
+
+	if tc.IDToken != "" {
+		token = token.WithExtra(map[string]interface{}{
+			"id_token": tc.IDToken,
+		})
+	}
+
+	return token
 }

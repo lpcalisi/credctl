@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -113,16 +114,25 @@ func Get(state *State, payload interface{}, readOnly bool) protocol.Response {
 
 	output, err := prov.Get(ctx)
 	if err != nil {
-		// Check if it's an authentication required error
-		if err == provider.ErrAuthenticationRequired {
+		// Check for specific authentication errors using errors.Is()
+		if errors.Is(err, provider.ErrAuthenticationRequired) {
 			return protocol.Response{
-				Status: "error",
-				Error:  "authentication required",
+				Status:    "error",
+				Error:     "authentication required",
+				ErrorType: protocol.ErrorTypeAuthRequired,
+			}
+		}
+		if errors.Is(err, provider.ErrDeviceFlowRequiresLogin) {
+			return protocol.Response{
+				Status:    "error",
+				Error:     err.Error(),
+				ErrorType: protocol.ErrorTypeDeviceFlowRequired,
 			}
 		}
 		return protocol.Response{
-			Status: "error",
-			Error:  fmt.Sprintf("failed to get credential: %v", err),
+			Status:    "error",
+			Error:     fmt.Sprintf("failed to get credential: %v", err),
+			ErrorType: protocol.ErrorTypeGeneric,
 		}
 	}
 

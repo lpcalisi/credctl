@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	_ "embed"
 	"encoding/base64"
 	"fmt"
 	"net"
@@ -14,9 +15,23 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/oauth2"
 )
 
-func generateCodeVerifier() (string, error) {
+//go:embed success.html
+var successHTML string
+
+//go:embed logo.png
+var logoBytes []byte
+
+// getLogoBase64 returns the logo as a base64 encoded string
+func getLogoBase64() string {
+	return base64.StdEncoding.EncodeToString(logoBytes)
+}
+
+// GenerateCodeVerifier generates a PKCE code verifier
+func GenerateCodeVerifier() (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
 		return "", err
@@ -24,7 +39,8 @@ func generateCodeVerifier() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
-func generateCodeChallenge(verifier string) string {
+// GenerateCodeChallenge generates a PKCE code challenge from a verifier
+func GenerateCodeChallenge(verifier string) string {
 	h := sha256.Sum256([]byte(verifier))
 	return base64.RawURLEncoding.EncodeToString(h[:])
 }
@@ -37,16 +53,31 @@ func generateState() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
-func AuthenticatePKCEFlow(ctx context.Context, params PKCEFlowParams) (code, codeVerifier, redirectURI string, err error) {
-	codeVerifier, err = generateCodeVerifier()
-	if err != nil {
-		return "", "", "", fmt.Errorf("failed to generate code verifier: %w", err)
-	}
-	codeChallenge := generateCodeChallenge(codeVerifier)
+// AuthCodeFlowParams contains parameters for authorization code flow
+type AuthCodeFlowParams struct {
+	AuthEndpoint string
+	ClientID     string
+	Scopes       []string
+	RedirectURI  string
+	RedirectPort int
+	UsePKCE      bool // If true, use PKCE extension
+}
 
+// AuthenticateAuthCodeFlow performs OAuth2 authorization code flow (with optional PKCE)
+func AuthenticateAuthCodeFlow(ctx context.Context, params AuthCodeFlowParams) (code, codeVerifier, redirectURI string, err error) {
 	state, err := generateState()
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to generate state: %w", err)
+	}
+
+	// Generate PKCE parameters if enabled
+	var codeChallenge string
+	if params.UsePKCE {
+		codeVerifier, err = GenerateCodeVerifier()
+		if err != nil {
+			return "", "", "", fmt.Errorf("failed to generate code verifier: %w", err)
+		}
+		codeChallenge = GenerateCodeChallenge(codeVerifier)
 	}
 
 	redirectURI = params.RedirectURI
@@ -79,24 +110,28 @@ func AuthenticatePKCEFlow(ctx context.Context, params PKCEFlowParams) (code, cod
 		}
 	}
 
-	authURL, err := url.Parse(params.AuthEndpoint)
-	if err != nil {
-		return "", "", "", fmt.Errorf("invalid auth endpoint: %w", err)
+	// Build authorization URL using oauth2.Config
+	config := &oauth2.Config{
+		ClientID:    params.ClientID,
+		RedirectURL: redirectURI,
+		Scopes:      params.Scopes,
+		Endpoint: oauth2.Endpoint{
+			AuthURL: params.AuthEndpoint,
+		},
 	}
 
-	q := authURL.Query()
-	q.Set("client_id", params.ClientID)
-	q.Set("response_type", "code")
-	q.Set("redirect_uri", redirectURI)
-	if len(params.Scopes) > 0 {
-		q.Set("scope", strings.Join(params.Scopes, " "))
+	// Add PKCE parameters if enabled
+	var authCodeOptions []oauth2.AuthCodeOption
+	if params.UsePKCE {
+		authCodeOptions = append(authCodeOptions,
+			oauth2.SetAuthURLParam("code_challenge", codeChallenge),
+			oauth2.SetAuthURLParam("code_challenge_method", "S256"),
+		)
 	}
-	q.Set("state", state)
-	q.Set("code_challenge", codeChallenge)
-	q.Set("code_challenge_method", "S256")
-	authURL.RawQuery = q.Encode()
 
-	if err := OpenBrowser(authURL.String()); err != nil {
+	authURL := config.AuthCodeURL(state, authCodeOptions...)
+
+	if err := OpenBrowser(authURL); err != nil {
 		return "", "", "", fmt.Errorf("failed to open browser: %w", err)
 	}
 
@@ -136,16 +171,10 @@ func AuthenticatePKCEFlow(ctx context.Context, params PKCEFlowParams) (code, cod
 					return
 				}
 
-				w.Header().Set("Content-Type", "text/html")
-				_, err := fmt.Fprint(w, `<!DOCTYPE html>
-<html>
-<head><title>Authentication Successful</title></head>
-<body>
-<h1>Authentication Successful</h1>
-<p>You can close this tab and return to the terminal.</p>
-<script>window.close();</script>
-</body>
-</html>`)
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				// Embed logo as base64 (placeholder - will be replaced at build time if needed)
+				html := strings.Replace(successHTML, "{{LOGO_BASE64}}", getLogoBase64(), 1)
+				_, err := fmt.Fprint(w, html)
 				if err != nil {
 					errChan <- fmt.Errorf("failed to write response: %w", err)
 					return

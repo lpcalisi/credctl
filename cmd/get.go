@@ -45,11 +45,16 @@ Use --raw to always get the raw credential value.`,
 			}
 
 			if resp.Status == "error" {
-				// Check if it's an authentication required error
-				if resp.Error == "authentication required" {
+				// Handle errors based on error type (structured error handling)
+				switch resp.ErrorType {
+				case protocol.ErrorTypeAuthRequired:
 					return fmt.Errorf("authentication required for provider '%s'\n\nRun: credctl login %s", name, name)
+				case protocol.ErrorTypeDeviceFlowRequired:
+					// Device flow error already has a descriptive message
+					return fmt.Errorf("%s", resp.Error)
+				default:
+					return fmt.Errorf("error: %s", resp.Error)
 				}
-				return fmt.Errorf("error: %s", resp.Error)
 			}
 
 			// Extract output from payload
