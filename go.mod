@@ -9,7 +9,6 @@ require (
 	github.com/sevlyar/go-daemon v0.1.6
 	github.com/spf13/cobra v1.10.1
 	golang.org/x/oauth2 v0.33.0
-	mvdan.cc/sh/v3 v3.12.0
 	sigs.k8s.io/release-utils v0.12.2
 )
 

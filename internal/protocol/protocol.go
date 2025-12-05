@@ -49,8 +49,10 @@ const (
 
 // GetResponsePayload is the payload of response for "get"
 type GetResponsePayload struct {
-	Output   string         `json:"output"`
-	Metadata map[string]any `json:"metadata,omitempty"`
+	Output              string            `json:"output"`
+	Metadata            map[string]any    `json:"metadata,omitempty"`
+	StructuredFields    map[string]string `json:"structured_fields,omitempty"` // Credenciales estructuradas si el provider las soporta
+	HasStructuredFields bool              `json:"has_structured_fields"`       // Indica si structured_fields está disponible
 }
 
 // DescribePayload is the payload for the "describe" action

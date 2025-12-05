@@ -3,6 +3,8 @@ package provider
 import (
 	"context"
 	"errors"
+
+	"credctl/internal/formatter"
 )
 
 var (
@@ -48,4 +50,13 @@ type TokenCacheProvider interface {
 
 	// GetTokens returns the current cached tokens (for sending to daemon after login)
 	GetTokens() (accessToken, refreshToken string, expiresIn int)
+}
+
+// CredentialsProvider is an optional interface for providers that support
+// exposing credentials in a structured format for template-based formatting
+type CredentialsProvider interface {
+	Provider
+
+	// GetCredentials returns the credentials in a structured format
+	GetCredentials(ctx context.Context) (*formatter.Credentials, error)
 }

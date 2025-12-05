@@ -21,8 +21,8 @@ func Add() *cobra.Command {
 		Long: `Add a credential provider.
 
 Examples:
-  credctl add command github --command "gh auth token" --format env
-  credctl add command aws --command "aws sts get-session-token" --format raw
+  credctl add command github --command "gh auth token"
+  credctl add oauth2-proxy myservice --auth-url "https://..." --template 'export TOKEN={{.token}}'
   
 Available provider types: ` + fmt.Sprintf("%v", provider.ListTypes()),
 		DisableFlagParsing: true,

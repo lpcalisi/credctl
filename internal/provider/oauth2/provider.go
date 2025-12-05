@@ -3,8 +3,10 @@ package oauth2
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
+	"credctl/internal/formatter"
 	"credctl/internal/provider"
 	"credctl/internal/provider/oauth2/common"
 )
@@ -34,8 +36,9 @@ type Provider struct {
 	redirectPort   int
 
 	// Flow options
-	flow    string // Explicit flow selection (auto, device, auth-code, client-credentials)
-	usePKCE bool   // Use PKCE for authorization_code flow
+	flow     string // Explicit flow selection (auto, device, auth-code, client-credentials)
+	usePKCE  bool   // Use PKCE for authorization_code flow
+	template string // Optional Go template for formatting output
 
 	// Token cache
 	tokens *common.TokenCache
@@ -124,6 +127,12 @@ func (p *Provider) Schema() provider.Schema {
 				Required: true,
 				Help:     "OAuth2 flow to use: device, auth-code, client-credentials",
 			},
+			{
+				Name:     provider.MetadataTemplate,
+				Type:     provider.FieldTypeString,
+				Required: false,
+				Help:     "Go template to format credentials (e.g., 'export TOKEN={{.access_token}}')",
+			},
 		},
 	}
 }
@@ -139,6 +148,7 @@ func (p *Provider) Init(config map[string]any) error {
 	p.redirectURI = provider.GetStringOrDefault(config, provider.MetadataRedirectURI, "")
 	p.usePKCE = provider.GetBoolOrDefault(config, "use_pkce", true)
 	p.flow = provider.GetStringOrDefault(config, "flow", "")
+	p.template = provider.GetStringOrDefault(config, provider.MetadataTemplate, "")
 
 	// Validate flow is provided
 	if p.flow == "" {
@@ -375,6 +385,9 @@ func (p *Provider) Metadata() map[string]any {
 	if p.flow != "" {
 		metadata["flow"] = p.flow
 	}
+	if p.template != "" {
+		metadata[provider.MetadataTemplate] = p.template
+	}
 
 	return metadata
 }
@@ -396,4 +409,49 @@ func (p *Provider) GetTokens() (accessToken, refreshToken string, expiresIn int)
 		remaining = 0
 	}
 	return p.tokens.AccessToken, p.tokens.RefreshToken, remaining
+}
+
+// GetCredentials returns the credentials in a structured format
+// This implements the CredentialsProvider interface
+func (p *Provider) GetCredentials(ctx context.Context) (*formatter.Credentials, error) {
+	// Check if we have valid cached tokens
+	if !common.IsTokenValid(p.tokens) {
+		// Try to get fresh tokens using Get() logic
+		_, err := p.Get(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if p.tokens == nil {
+		return nil, fmt.Errorf("no tokens available")
+	}
+
+	// Build structured credentials with all available token fields
+	fields := make(map[string]string)
+
+	if p.tokens.AccessToken != "" {
+		fields["access_token"] = p.tokens.AccessToken
+	}
+	if p.tokens.RefreshToken != "" {
+		fields["refresh_token"] = p.tokens.RefreshToken
+	}
+	if p.tokens.IDToken != "" {
+		fields["id_token"] = p.tokens.IDToken
+	}
+	if p.tokens.TokenType != "" {
+		fields["token_type"] = p.tokens.TokenType
+	}
+
+	// Add expires_at as ISO8601 timestamp
+	fields["expires_at"] = p.tokens.ExpiresAt.Format(time.RFC3339)
+
+	// Add expires_in as seconds remaining
+	remaining := int(time.Until(p.tokens.ExpiresAt).Seconds())
+	if remaining < 0 {
+		remaining = 0
+	}
+	fields["expires_in"] = strconv.Itoa(remaining)
+
+	return formatter.NewCredentials(fields), nil
 }
