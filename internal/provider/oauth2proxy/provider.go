@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"credctl/internal/formatter"
 	"credctl/internal/provider"
 	"credctl/internal/provider/oauth2/common"
 )
@@ -16,6 +17,7 @@ type Provider struct {
 	authURL      string // Full URL of the proxy (including callback_url parameter)
 	tokenField   string // Which token to return: "token", "access_token", or "both"
 	redirectPort int    // Local port for callback server
+	template     string // Optional Go template for formatting output
 
 	tokens *common.TokenCache // Cached tokens
 }
@@ -53,6 +55,12 @@ func (p *Provider) Schema() provider.Schema {
 				Default:  "8085",
 				Help:     "Local port for OAuth callback server",
 			},
+			{
+				Name:     provider.MetadataTemplate,
+				Type:     provider.FieldTypeString,
+				Required: false,
+				Help:     "Go template to format credentials (e.g., 'export TOKEN={{.token}}')",
+			},
 		},
 	}
 }
@@ -61,6 +69,7 @@ func (p *Provider) Init(config map[string]any) error {
 	p.authURL = provider.GetStringOrDefault(config, "auth_url", "")
 	p.tokenField = provider.GetStringOrDefault(config, "token_field", "token")
 	p.redirectPort = provider.GetIntOrDefault(config, provider.MetadataRedirectPort, 8085)
+	p.template = provider.GetStringOrDefault(config, provider.MetadataTemplate, "")
 
 	// Validate required fields
 	if p.authURL == "" {
@@ -80,16 +89,41 @@ func (p *Provider) Init(config map[string]any) error {
 
 func (p *Provider) Get(ctx context.Context) ([]byte, error) {
 	// Check if we have valid cached tokens
-	if common.IsTokenValid(p.tokens) {
-		return p.formatToken()
-	}
-
-	// No valid token, perform authentication flow
-	if err := p.doProxyAuthFlow(ctx); err != nil {
-		return nil, err
+	if !common.IsTokenValid(p.tokens) {
+		// No valid token, perform authentication flow
+		if err := p.doProxyAuthFlow(ctx); err != nil {
+			return nil, err
+		}
 	}
 
 	return p.formatToken()
+}
+
+// GetCredentials returns the credentials in a structured format
+// This implements the CredentialsProvider interface
+func (p *Provider) GetCredentials(ctx context.Context) (*formatter.Credentials, error) {
+	// Check if we have valid cached tokens
+	if !common.IsTokenValid(p.tokens) {
+		// No valid token, perform authentication flow
+		if err := p.doProxyAuthFlow(ctx); err != nil {
+			return nil, err
+		}
+	}
+
+	if p.tokens == nil {
+		return nil, fmt.Errorf("no tokens available")
+	}
+
+	// Return all available tokens as structured credentials
+	fields := make(map[string]string)
+	if p.tokens.IDToken != "" {
+		fields["token"] = p.tokens.IDToken
+	}
+	if p.tokens.AccessToken != "" {
+		fields["access_token"] = p.tokens.AccessToken
+	}
+
+	return formatter.NewCredentials(fields), nil
 }
 
 func (p *Provider) Login(ctx context.Context) error {
@@ -106,6 +140,10 @@ func (p *Provider) Metadata() map[string]any {
 
 	if p.redirectPort != 0 {
 		metadata[provider.MetadataRedirectPort] = p.redirectPort
+	}
+
+	if p.template != "" {
+		metadata[provider.MetadataTemplate] = p.template
 	}
 
 	return metadata

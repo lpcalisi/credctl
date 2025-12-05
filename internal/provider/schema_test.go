@@ -291,79 +291,79 @@ func TestValidateConfig(t *testing.T) {
 	}{
 		{
 			name:   "all required fields present",
-			config: map[string]any{"command": "echo hello", "format": "raw"},
+			config: map[string]any{"url": "https://example.com", "method": "GET"},
 			schema: Schema{
 				Fields: []FieldDef{
-					{Name: "command", Type: FieldTypeString, Required: true},
-					{Name: "format", Type: FieldTypeString, Required: true},
+					{Name: "url", Type: FieldTypeString, Required: true},
+					{Name: "method", Type: FieldTypeString, Required: true},
 				},
 			},
 			wantErr: false,
 		},
 		{
 			name:   "missing required field",
-			config: map[string]any{"format": "raw"},
+			config: map[string]any{"method": "GET"},
 			schema: Schema{
 				Fields: []FieldDef{
-					{Name: "command", Type: FieldTypeString, Required: true},
-					{Name: "format", Type: FieldTypeString, Required: true},
+					{Name: "url", Type: FieldTypeString, Required: true},
+					{Name: "method", Type: FieldTypeString, Required: true},
 				},
 			},
 			wantErr: true,
-			errMsg:  "required field 'command' is missing",
+			errMsg:  "required field 'url' is missing",
 		},
 		{
 			name:   "optional field missing is ok",
-			config: map[string]any{"command": "echo hello"},
+			config: map[string]any{"url": "https://example.com"},
 			schema: Schema{
 				Fields: []FieldDef{
-					{Name: "command", Type: FieldTypeString, Required: true},
-					{Name: "format", Type: FieldTypeString, Required: false},
+					{Name: "url", Type: FieldTypeString, Required: true},
+					{Name: "timeout", Type: FieldTypeInt, Required: false},
 				},
 			},
 			wantErr: false,
 		},
 		{
 			name:   "valid enum value",
-			config: map[string]any{"format": "env"},
+			config: map[string]any{"method": "POST"},
 			schema: Schema{
 				Fields: []FieldDef{
-					{Name: "format", Type: FieldTypeString, ValidValues: []string{"raw", "env", "file"}},
+					{Name: "method", Type: FieldTypeString, ValidValues: []string{"GET", "POST", "PUT"}},
 				},
 			},
 			wantErr: false,
 		},
 		{
 			name:   "invalid enum value",
-			config: map[string]any{"format": "invalid"},
+			config: map[string]any{"method": "INVALID"},
 			schema: Schema{
 				Fields: []FieldDef{
-					{Name: "format", Type: FieldTypeString, ValidValues: []string{"raw", "env", "file"}},
+					{Name: "method", Type: FieldTypeString, ValidValues: []string{"GET", "POST", "PUT"}},
 				},
 			},
 			wantErr: true,
-			errMsg:  "field 'format' must be one of:",
+			errMsg:  "field 'method' must be one of:",
 		},
 		{
 			name:   "enum field not present (allowed if not required)",
 			config: map[string]any{},
 			schema: Schema{
 				Fields: []FieldDef{
-					{Name: "format", Type: FieldTypeString, ValidValues: []string{"raw", "env"}},
+					{Name: "method", Type: FieldTypeString, ValidValues: []string{"GET", "POST"}},
 				},
 			},
 			wantErr: false,
 		},
 		{
 			name:   "enum value not a string",
-			config: map[string]any{"format": 123},
+			config: map[string]any{"method": 123},
 			schema: Schema{
 				Fields: []FieldDef{
-					{Name: "format", Type: FieldTypeString, ValidValues: []string{"raw", "env"}},
+					{Name: "method", Type: FieldTypeString, ValidValues: []string{"GET", "POST"}},
 				},
 			},
 			wantErr: true,
-			errMsg:  "field 'format' must be a string",
+			errMsg:  "field 'method' must be a string",
 		},
 		{
 			name:    "empty schema",
@@ -407,4 +407,3 @@ func containsSubstr(s, substr string) bool {
 	}
 	return false
 }
-

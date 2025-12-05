@@ -26,6 +26,8 @@ jobs:
         uses: golangci/golangci-lint-action@v9
         with:
           version: latest
+        env:
+          NODE_NO_WARNINGS: 1
 
   test:
     name: Test

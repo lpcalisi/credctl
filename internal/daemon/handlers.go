@@ -136,13 +136,24 @@ func Get(state *State, payload interface{}, readOnly bool) protocol.Response {
 		}
 	}
 
+	// Try to get structured credentials if provider supports it
+	responsePayload := protocol.GetResponsePayload{
+		Output:   string(output),
+		Metadata: prov.Metadata(),
+	}
+
+	if credsProv, ok := prov.(provider.CredentialsProvider); ok {
+		creds, err := credsProv.GetCredentials(ctx)
+		if err == nil && creds != nil && creds.Fields != nil {
+			responsePayload.StructuredFields = creds.Fields
+			responsePayload.HasStructuredFields = true
+		}
+	}
+
 	// Return output and provider metadata
 	return protocol.Response{
-		Status: "ok",
-		Payload: protocol.GetResponsePayload{
-			Output:   string(output),
-			Metadata: prov.Metadata(),
-		},
+		Status:  "ok",
+		Payload: responsePayload,
 	}
 }
 

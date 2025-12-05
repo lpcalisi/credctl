@@ -14,16 +14,14 @@ import (
 
 // Get returns the get command
 func Get() *cobra.Command {
-	var raw bool
+	var templateStr string
+	var outputPath string
 
 	cmd := &cobra.Command{
 		Use:   "get <name>",
 		Short: "Get credentials from a provider",
-		Long: `Get credentials by executing the provider's command.
-
-By default, uses the format configured in the provider.
-Use --raw to always get the raw credential value.`,
-		Args: cobra.ExactArgs(1),
+		Long:  `Get credentials from a provider using its configured format.`,
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 
@@ -70,67 +68,59 @@ Use --raw to always get the raw credential value.`,
 
 			rawOutput := getRespPayload.Output
 			metadata := getRespPayload.Metadata
+			structuredFields := getRespPayload.StructuredFields
+			hasStructuredFields := getRespPayload.HasStructuredFields
 
-			// If --raw flag is set, always output raw
-			if raw {
-				fmt.Print(formatter.Raw(rawOutput))
-				if len(rawOutput) > 0 && rawOutput[len(rawOutput)-1] != '\n' {
-					fmt.Println()
+			// Determine the final output
+			var finalOutput []byte
+
+			// Check if template is requested (from flag or metadata)
+			effectiveTemplate := templateStr
+			if effectiveTemplate == "" && metadata != nil {
+				if tmpl, ok := metadata[provider.MetadataTemplate].(string); ok {
+					effectiveTemplate = tmpl
 				}
+			}
+
+			// If template is requested, apply it
+			if effectiveTemplate != "" {
+				if !hasStructuredFields {
+					return fmt.Errorf("template requested but provider does not support structured credentials")
+				}
+
+				creds := formatter.NewCredentials(structuredFields)
+				templatedOutput, err := formatter.ApplyTemplate(creds, effectiveTemplate)
+				if err != nil {
+					return fmt.Errorf("failed to apply template: %w", err)
+				}
+				finalOutput = templatedOutput
+			} else {
+				// No template, use raw output
+				finalOutput = []byte(rawOutput)
+			}
+
+			// Handle output destination
+			if outputPath != "" {
+				// Write to file
+				if err := formatter.WriteOutput(finalOutput, outputPath); err != nil {
+					return fmt.Errorf("failed to write output: %w", err)
+				}
+				fmt.Printf("Credentials written to %s\n", outputPath)
 				return nil
 			}
 
-			// Use provider's configured format (default to raw if not set)
-			format := provider.FormatRaw
-			if metadata != nil {
-				if formatVal, ok := metadata[provider.MetadataFormat].(string); ok {
-					format = formatVal
-				}
-			}
-
-			switch format {
-			case provider.FormatRaw:
-				// Print raw output
-				fmt.Print(formatter.Raw(rawOutput))
-				if len(rawOutput) > 0 && rawOutput[len(rawOutput)-1] != '\n' {
-					fmt.Println()
-				}
-
-			case provider.FormatEnv:
-				// Format as environment variables
-				envVar := ""
-				if metadata != nil {
-					if envVarVal, ok := metadata[provider.MetadataEnvVar].(string); ok {
-						envVar = envVarVal
-					}
-				}
-				formatted, err := formatter.Env(rawOutput, envVar)
-				if err != nil {
-					return fmt.Errorf("failed to format output: %w", err)
-				}
-				fmt.Println(formatted)
-
-			case provider.FormatFile:
-				// Write to file
-				if metadata == nil {
-					return fmt.Errorf("provider configuration not found")
-				}
-
-				writtenPath, err := formatter.FileFromMetadata(rawOutput, metadata)
-				if err != nil {
-					return fmt.Errorf("failed to write file: %w", err)
-				}
-				fmt.Printf("Credential written to %s\n", writtenPath)
-
-			default:
-				return fmt.Errorf("unknown format: %s", format)
+			// Output to stdout
+			fmt.Print(string(finalOutput))
+			if len(finalOutput) > 0 && finalOutput[len(finalOutput)-1] != '\n' {
+				fmt.Println()
 			}
 
 			return nil
 		},
 	}
 
-	cmd.Flags().BoolVar(&raw, "raw", false, "Output raw credential value (ignores provider format)")
+	cmd.Flags().StringVar(&templateStr, "template", "", "Go template to format credentials (e.g., 'export TOKEN={{.token}}')")
+	cmd.Flags().StringVar(&outputPath, "output", "", "Write output to file (validates JSON if extension is .json)")
 
 	return cmd
 }
