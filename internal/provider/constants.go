@@ -5,7 +5,8 @@ const (
 	// Common fields
 	MetadataCommand      = "command"
 	MetadataLoginCommand = "login_command"
-	MetadataTemplate     = "template" // Template Go para formatear output
+	MetadataTemplate     = "template"     // Go template for output formatting
+	MetadataInputFormat  = "input_format" // Format of command output (raw, json, env, yaml)
 )
 
 // OIDC metadata field keys
