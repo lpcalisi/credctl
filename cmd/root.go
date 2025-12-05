@@ -27,6 +27,7 @@ The agent runs as a daemon and communicates via a Unix socket.`,
 	cmd.AddCommand(Add())
 	cmd.AddCommand(Get())
 	cmd.AddCommand(Delete())
+	cmd.AddCommand(List())
 	cmd.AddCommand(Daemon())
 	cmd.AddCommand(Export())
 	cmd.AddCommand(Import())

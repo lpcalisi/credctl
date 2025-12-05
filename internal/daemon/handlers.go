@@ -295,3 +295,24 @@ func Describe(state *State, payload interface{}, readOnly bool) protocol.Respons
 		},
 	}
 }
+
+func List(state *State, payload interface{}, readOnly bool) protocol.Response {
+	// List operation is allowed in both modes (no permission check needed)
+	providers := state.List()
+
+	// Convert map to slice of ProviderInfo
+	var providerList []protocol.ProviderInfo
+	for name, provType := range providers {
+		providerList = append(providerList, protocol.ProviderInfo{
+			Name: name,
+			Type: provType,
+		})
+	}
+
+	return protocol.Response{
+		Status: "ok",
+		Payload: protocol.ListResponsePayload{
+			Providers: providerList,
+		},
+	}
+}

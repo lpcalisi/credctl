@@ -100,3 +100,15 @@ func (s *State) Delete(name string) error {
 	delete(s.providers, name)
 	return nil
 }
+
+// List returns a list of all providers with their types
+func (s *State) List() map[string]string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	result := make(map[string]string)
+	for name, prov := range s.providers {
+		result[name] = prov.Type()
+	}
+	return result
+}

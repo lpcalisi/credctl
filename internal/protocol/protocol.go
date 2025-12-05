@@ -65,3 +65,14 @@ type DescribeResponsePayload struct {
 	Type     string         `json:"type"`
 	Metadata map[string]any `json:"metadata"`
 }
+
+// ProviderInfo represents information about a provider
+type ProviderInfo struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
+// ListResponsePayload is the payload of response for "list"
+type ListResponsePayload struct {
+	Providers []ProviderInfo `json:"providers"`
+}
