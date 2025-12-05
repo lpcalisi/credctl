@@ -1,4 +1,4 @@
-package formatter
+package credentials
 
 // Credentials represents credentials in structured format
 // Allows providers to expose their credentials uniformly
@@ -7,8 +7,8 @@ type Credentials struct {
 	Fields map[string]string
 }
 
-// NewCredentials creates a new Credentials with the provided fields
-func NewCredentials(fields map[string]string) *Credentials {
+// New creates a new Credentials with the provided fields
+func New(fields map[string]string) *Credentials {
 	return &Credentials{
 		Fields: fields,
 	}

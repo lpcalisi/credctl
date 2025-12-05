@@ -44,7 +44,7 @@ credctl add oauth2 google \
 
 **3. Get credentials:**
 ```bash
-credctl get gh
+credctl get google
 ```
 
 That's it on your local machine! ✅
@@ -76,6 +76,12 @@ credctl supports multiple provider types for credential retrieval
 
 📖 See [docs/providers.md](docs/providers.md) for complete documentation on all available providers.
 
+## Examples
+
+See the [examples/](examples/) directory for real-world usage:
+
+- **[Git Credential Helper](examples/git-credential.md)** - Use with GitHub CLI for seamless git authentication
+
 ## Use Cases
 
 - 🐳 **Docker containers** - Mount socket, no secrets in images
@@ -83,3 +89,4 @@ credctl supports multiple provider types for credential retrieval
 - 🌐 **CI/CD** - Forward socket to build agents
 - 📱 **Multiple environments** - One daemon, many remotes
 - 🔄 **Credential rotation** - Update once, works everywhere
+- 🔑 **Git credential helper** - Integrate with git for automatic authentication

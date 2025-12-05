@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"credctl/internal/formatter"
+	"credctl/internal/credentials"
 	"credctl/internal/provider"
 )
 
@@ -18,6 +18,9 @@ type CommandProvider struct {
 	command      string
 	loginCommand string
 	inputFormat  string
+	template     string
+	format       string
+	output       string
 }
 
 func init() {
@@ -62,6 +65,9 @@ func (p *CommandProvider) Init(config map[string]any) error {
 	p.command = config[provider.MetadataCommand].(string)
 	p.loginCommand = provider.GetStringOrDefault(config, provider.MetadataLoginCommand, "")
 	p.inputFormat = provider.GetStringOrDefault(config, provider.MetadataInputFormat, "raw")
+	p.template = provider.GetStringOrDefault(config, provider.MetadataTemplate, "")
+	p.format = provider.GetStringOrDefault(config, provider.MetadataFormat, "text")
+	p.output = provider.GetStringOrDefault(config, provider.MetadataOutput, "")
 	return nil
 }
 
@@ -97,6 +103,19 @@ func (p *CommandProvider) Metadata() map[string]any {
 		metadata[provider.MetadataInputFormat] = p.inputFormat
 	}
 
+	// Preserve template, format and output from config (set by cmd/add.go global flags)
+	if p.template != "" {
+		metadata[provider.MetadataTemplate] = p.template
+	}
+
+	if p.format != "" && p.format != "text" {
+		metadata[provider.MetadataFormat] = p.format
+	}
+
+	if p.output != "" {
+		metadata[provider.MetadataOutput] = p.output
+	}
+
 	return metadata
 }
 
@@ -121,7 +140,7 @@ func (p *CommandProvider) Login(ctx context.Context) error {
 
 // GetCredentials returns the credentials in a structured format
 // This implements the CredentialsProvider interface
-func (p *CommandProvider) GetCredentials(ctx context.Context) (*formatter.Credentials, error) {
+func (p *CommandProvider) GetCredentials(ctx context.Context) (*credentials.Credentials, error) {
 	// Get raw output from command
 	output, err := p.Get(ctx)
 	if err != nil {
@@ -148,7 +167,7 @@ func (p *CommandProvider) GetCredentials(ctx context.Context) (*formatter.Creden
 		return nil, fmt.Errorf("failed to parse %s output: %w", p.inputFormat, err)
 	}
 
-	return formatter.NewCredentials(fields), nil
+	return credentials.New(fields), nil
 }
 
 // parseJSON parses JSON output into a flat map of string fields

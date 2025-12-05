@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"credctl/internal/formatter"
+	"credctl/internal/credentials"
 	"credctl/internal/provider"
 	"credctl/internal/provider/oauth2/common"
 )
@@ -39,6 +39,8 @@ type Provider struct {
 	flow     string // Explicit flow selection (auto, device, auth-code, client-credentials)
 	usePKCE  bool   // Use PKCE for authorization_code flow
 	template string // Optional Go template for formatting output
+	format   string // Default output format
+	output   string // Default output file path
 
 	// Token cache
 	tokens *common.TokenCache
@@ -127,12 +129,6 @@ func (p *Provider) Schema() provider.Schema {
 				Required: true,
 				Help:     "OAuth2 flow to use: device, auth-code, client-credentials",
 			},
-			{
-				Name:     provider.MetadataTemplate,
-				Type:     provider.FieldTypeString,
-				Required: false,
-				Help:     "Go template to format credentials (e.g., 'export TOKEN={{.access_token}}')",
-			},
 		},
 	}
 }
@@ -149,6 +145,8 @@ func (p *Provider) Init(config map[string]any) error {
 	p.usePKCE = provider.GetBoolOrDefault(config, "use_pkce", true)
 	p.flow = provider.GetStringOrDefault(config, "flow", "")
 	p.template = provider.GetStringOrDefault(config, provider.MetadataTemplate, "")
+	p.format = provider.GetStringOrDefault(config, provider.MetadataFormat, "text")
+	p.output = provider.GetStringOrDefault(config, provider.MetadataOutput, "")
 
 	// Validate flow is provided
 	if p.flow == "" {
@@ -389,6 +387,15 @@ func (p *Provider) Metadata() map[string]any {
 		metadata[provider.MetadataTemplate] = p.template
 	}
 
+	// Preserve format and output from config (set by cmd/add.go global flags)
+	if p.format != "" && p.format != "text" {
+		metadata[provider.MetadataFormat] = p.format
+	}
+
+	if p.output != "" {
+		metadata[provider.MetadataOutput] = p.output
+	}
+
 	return metadata
 }
 
@@ -413,7 +420,7 @@ func (p *Provider) GetTokens() (accessToken, refreshToken string, expiresIn int)
 
 // GetCredentials returns the credentials in a structured format
 // This implements the CredentialsProvider interface
-func (p *Provider) GetCredentials(ctx context.Context) (*formatter.Credentials, error) {
+func (p *Provider) GetCredentials(ctx context.Context) (*credentials.Credentials, error) {
 	// Check if we have valid cached tokens
 	if !common.IsTokenValid(p.tokens) {
 		// Try to get fresh tokens using Get() logic
@@ -453,5 +460,5 @@ func (p *Provider) GetCredentials(ctx context.Context) (*formatter.Credentials, 
 	}
 	fields["expires_in"] = strconv.Itoa(remaining)
 
-	return formatter.NewCredentials(fields), nil
+	return credentials.New(fields), nil
 }

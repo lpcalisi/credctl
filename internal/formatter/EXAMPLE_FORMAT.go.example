@@ -1,0 +1,31 @@
+package formatter
+
+import "fmt"
+
+// ExampleFormatter is an example formatter that shows how to add a new format
+// To add a new format:
+// 1. Create a new file (e.g., myformat.go)
+// 2. Implement the Formatter interface
+// 3. Register it in init()
+// That's it! The format will be automatically available.
+type ExampleFormatter struct{}
+
+func init() {
+	// Register the formatter with its name
+	RegisterFormatter("example", func() Formatter {
+		return &ExampleFormatter{}
+	})
+}
+
+func (f *ExampleFormatter) Name() string {
+	return "example"
+}
+
+func (f *ExampleFormatter) Format(output []byte) ([]byte, error) {
+	// Implement your formatting logic here
+	// For example, convert to uppercase:
+	// return bytes.ToUpper(output), nil
+	
+	return nil, fmt.Errorf("example formatter not implemented")
+}
+

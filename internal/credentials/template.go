@@ -1,4 +1,4 @@
-package formatter
+package credentials
 
 import (
 	"bytes"
@@ -38,3 +38,4 @@ func ApplyTemplate(creds *Credentials, tmplStr string) ([]byte, error) {
 
 	return buf.Bytes(), nil
 }
+

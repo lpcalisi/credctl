@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"credctl/internal/formatter"
+	"credctl/internal/credentials"
 )
 
 var (
@@ -58,5 +58,5 @@ type CredentialsProvider interface {
 	Provider
 
 	// GetCredentials returns the credentials in a structured format
-	GetCredentials(ctx context.Context) (*formatter.Credentials, error)
+	GetCredentials(ctx context.Context) (*credentials.Credentials, error)
 }

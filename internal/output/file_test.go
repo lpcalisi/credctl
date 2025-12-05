@@ -1,4 +1,4 @@
-package formatter
+package output
 
 import (
 	"os"
@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestWriteOutput(t *testing.T) {
+func TestWrite(t *testing.T) {
 	// Create temp directory for tests
 	tempDir := t.TempDir()
 
@@ -15,7 +15,6 @@ func TestWriteOutput(t *testing.T) {
 		output      []byte
 		filename    string
 		shouldError bool
-		errorMsg    string
 	}{
 		{
 			name:     "write txt file",
@@ -23,23 +22,15 @@ func TestWriteOutput(t *testing.T) {
 			filename: "test.txt",
 		},
 		{
-			name:     "write json file with valid json",
+			name:     "write json file",
 			output:   []byte(`{"token": "abc123"}`),
 			filename: "test.json",
-		},
-		{
-			name:        "write json file with invalid json",
-			output:      []byte("not json"),
-			filename:    "test.json",
-			shouldError: true,
-			errorMsg:    "not valid JSON",
 		},
 		{
 			name:        "empty file path",
 			output:      []byte("test"),
 			filename:    "",
 			shouldError: true,
-			errorMsg:    "cannot be empty",
 		},
 		{
 			name:     "create nested directories",
@@ -55,16 +46,15 @@ func TestWriteOutput(t *testing.T) {
 				filePath = filepath.Join(tempDir, tt.name, tt.filename)
 			}
 
-			err := WriteOutput(tt.output, filePath)
+			err := Write(tt.output, filePath)
 
-		if tt.shouldError {
-			if err == nil {
-				t.Errorf("expected error but got none")
+			if tt.shouldError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+					return
+				}
 				return
 			}
-			// Just check that we got an error, exact message matching is fragile
-			return
-		}
 
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
@@ -96,7 +86,7 @@ func TestWriteOutput(t *testing.T) {
 	}
 }
 
-func TestWriteOutputHomeDirExpansion(t *testing.T) {
+func TestWriteHomeDirExpansion(t *testing.T) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		t.Skip("cannot get home directory")
@@ -109,7 +99,7 @@ func TestWriteOutputHomeDirExpansion(t *testing.T) {
 
 	// Use ~ in path
 	tildeePath := "~/.credctl_test_" + t.Name()
-	err = WriteOutput([]byte("test"), tildeePath)
+	err = Write([]byte("test"), tildeePath)
 	if err != nil {
 		t.Errorf("failed to write with ~ path: %v", err)
 		return
