@@ -51,7 +51,7 @@ That's it on your local machine! ✅
 
 ## Remote Access
 
-Now the magic: use credentials from **anywhere** without copying them.
+Now the magic ✨: use credentials from **anywhere** without copying them.
 
 **SSH with socket forward:**
 ```bash
