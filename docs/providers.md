@@ -23,6 +23,11 @@ Full OAuth2/OIDC client with multiple authentication flows.
 
 **Use cases:** Google, Azure AD, Keycloak, Auth0, GitHub, any OAuth2-compatible service
 
+### 🌐 [OAuth2 Proxy Provider](oauth2-proxy.md)
+Simplified authentication via transparent OAuth2 proxies.
+
+**Use cases:** Corporate proxies, simplified OAuth2 flows without client configuration
+
 ## Storage & Caching
 
 - **Provider configurations**: Stored in `~/.credctl/providers/<name>.json`
