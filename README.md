@@ -29,7 +29,7 @@ sudo mv credctl /usr/local/bin/
 
 **1. Start daemon on your local machine:**
 ```bash
-eval $(credctl daemon start)
+eval $(credctl daemon)
 ```
 
 **2. Add a credential provider:**
