@@ -7,6 +7,8 @@ const (
 	MetadataLoginCommand = "login_command"
 	MetadataTemplate     = "template"     // Go template for output formatting
 	MetadataInputFormat  = "input_format" // Format of command output (raw, json, env, yaml)
+	MetadataFormat       = "format"       // Output format for credctl get (json, text, escaped)
+	MetadataOutput       = "output"       // Default output file path
 )
 
 // OIDC metadata field keys

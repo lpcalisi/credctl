@@ -5,7 +5,9 @@ import (
 	"fmt"
 
 	"credctl/internal/client"
+	"credctl/internal/credentials"
 	"credctl/internal/formatter"
+	"credctl/internal/output"
 	"credctl/internal/protocol"
 	"credctl/internal/provider"
 
@@ -16,14 +18,15 @@ import (
 func Get() *cobra.Command {
 	var templateStr string
 	var outputPath string
+	var format string
 
 	cmd := &cobra.Command{
 		Use:   "get <name>",
 		Short: "Get credentials from a provider",
 		Long:  `Get credentials from a provider using its configured format.`,
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			name := args[0]
+			name := args[0] // Use only the first argument, ignore additional ones
 
 			if name == "" {
 				return fmt.Errorf("provider name cannot be empty")
@@ -71,16 +74,13 @@ func Get() *cobra.Command {
 			structuredFields := getRespPayload.StructuredFields
 			hasStructuredFields := getRespPayload.HasStructuredFields
 
-			// Determine the final output
-			var finalOutput []byte
+			// Determine effective values (flag > metadata > default)
+			effectiveFormat := getEffective(format, metadata, provider.MetadataFormat, "text")
+			effectiveOutput := getEffective(outputPath, metadata, provider.MetadataOutput, "")
+			effectiveTemplate := getEffective(templateStr, metadata, provider.MetadataTemplate, "")
 
-			// Check if template is requested (from flag or metadata)
-			effectiveTemplate := templateStr
-			if effectiveTemplate == "" && metadata != nil {
-				if tmpl, ok := metadata[provider.MetadataTemplate].(string); ok {
-					effectiveTemplate = tmpl
-				}
-			}
+			// Apply template if specified
+			var finalOutput []byte
 
 			// If template is requested, apply it
 			if effectiveTemplate != "" {
@@ -88,8 +88,8 @@ func Get() *cobra.Command {
 					return fmt.Errorf("template requested but provider does not support structured credentials")
 				}
 
-				creds := formatter.NewCredentials(structuredFields)
-				templatedOutput, err := formatter.ApplyTemplate(creds, effectiveTemplate)
+				creds := credentials.New(structuredFields)
+				templatedOutput, err := credentials.ApplyTemplate(creds, effectiveTemplate)
 				if err != nil {
 					return fmt.Errorf("failed to apply template: %w", err)
 				}
@@ -99,19 +99,32 @@ func Get() *cobra.Command {
 				finalOutput = []byte(rawOutput)
 			}
 
+			// Apply format
+			fmtr, err := formatter.Get(effectiveFormat)
+			if err != nil {
+				// Show available formats in error
+				available := formatter.List()
+				return fmt.Errorf("unsupported format '%s', available formats: %v", effectiveFormat, available)
+			}
+
+			formattedOutput, err := fmtr.Format(finalOutput)
+			if err != nil {
+				return fmt.Errorf("failed to format output: %w", err)
+			}
+
 			// Handle output destination
-			if outputPath != "" {
+			if effectiveOutput != "" {
 				// Write to file
-				if err := formatter.WriteOutput(finalOutput, outputPath); err != nil {
+				if err := output.Write(formattedOutput, effectiveOutput); err != nil {
 					return fmt.Errorf("failed to write output: %w", err)
 				}
-				fmt.Printf("Credentials written to %s\n", outputPath)
+				fmt.Printf("Credentials written to %s\n", effectiveOutput)
 				return nil
 			}
 
 			// Output to stdout
-			fmt.Print(string(finalOutput))
-			if len(finalOutput) > 0 && finalOutput[len(finalOutput)-1] != '\n' {
+			fmt.Print(string(formattedOutput))
+			if len(formattedOutput) > 0 && formattedOutput[len(formattedOutput)-1] != '\n' {
 				fmt.Println()
 			}
 
@@ -120,7 +133,22 @@ func Get() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&templateStr, "template", "", "Go template to format credentials (e.g., 'export TOKEN={{.token}}')")
-	cmd.Flags().StringVar(&outputPath, "output", "", "Write output to file (validates JSON if extension is .json)")
+	cmd.Flags().StringVar(&outputPath, "output", "", "Write output to file")
+	cmd.Flags().StringVar(&format, "format", "", "Output format: json, text, escaped (default: text, or provider's default)")
 
 	return cmd
+}
+
+// getEffective returns the effective value for a configuration option
+// Priority: flag value > metadata value > default value
+func getEffective(flagValue string, metadata map[string]any, metadataKey string, defaultValue string) string {
+	if flagValue != "" {
+		return flagValue
+	}
+	if metadata != nil {
+		if val, ok := metadata[metadataKey].(string); ok && val != "" {
+			return val
+		}
+	}
+	return defaultValue
 }

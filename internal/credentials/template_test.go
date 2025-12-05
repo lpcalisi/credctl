@@ -1,4 +1,4 @@
-package formatter
+package credentials
 
 import (
 	"testing"
@@ -14,7 +14,7 @@ func TestApplyTemplate(t *testing.T) {
 	}{
 		{
 			name: "simple export template",
-			creds: NewCredentials(map[string]string{
+			creds: New(map[string]string{
 				"token": "abc123",
 			}),
 			template: "export TOKEN={{.token}}",
@@ -22,7 +22,7 @@ func TestApplyTemplate(t *testing.T) {
 		},
 		{
 			name: "json template",
-			creds: NewCredentials(map[string]string{
+			creds: New(map[string]string{
 				"token": "xyz789",
 			}),
 			template: `{"jwt": "{{.token}}"}`,
@@ -30,7 +30,7 @@ func TestApplyTemplate(t *testing.T) {
 		},
 		{
 			name: "multiple fields",
-			creds: NewCredentials(map[string]string{
+			creds: New(map[string]string{
 				"token":        "tok123",
 				"access_token": "acc456",
 			}),
@@ -45,7 +45,7 @@ func TestApplyTemplate(t *testing.T) {
 		},
 		{
 			name: "empty template",
-			creds: NewCredentials(map[string]string{
+			creds: New(map[string]string{
 				"token": "abc123",
 			}),
 			template:    "",
@@ -53,7 +53,7 @@ func TestApplyTemplate(t *testing.T) {
 		},
 		{
 			name: "invalid template syntax",
-			creds: NewCredentials(map[string]string{
+			creds: New(map[string]string{
 				"token": "abc123",
 			}),
 			template:    "export TOKEN={{.token",
@@ -85,9 +85,9 @@ func TestApplyTemplate(t *testing.T) {
 }
 
 func TestCredentials(t *testing.T) {
-	t.Run("NewCredentials", func(t *testing.T) {
+	t.Run("New", func(t *testing.T) {
 		fields := map[string]string{"token": "abc"}
-		creds := NewCredentials(fields)
+		creds := New(fields)
 
 		if creds.Fields["token"] != "abc" {
 			t.Errorf("expected token=abc, got %s", creds.Fields["token"])
@@ -95,7 +95,7 @@ func TestCredentials(t *testing.T) {
 	})
 
 	t.Run("Get", func(t *testing.T) {
-		creds := NewCredentials(map[string]string{"token": "abc"})
+		creds := New(map[string]string{"token": "abc"})
 
 		if creds.Get("token") != "abc" {
 			t.Errorf("expected abc, got %s", creds.Get("token"))
@@ -107,7 +107,7 @@ func TestCredentials(t *testing.T) {
 	})
 
 	t.Run("Set", func(t *testing.T) {
-		creds := NewCredentials(nil)
+		creds := New(nil)
 		creds.Set("token", "xyz")
 
 		if creds.Get("token") != "xyz" {
@@ -116,7 +116,7 @@ func TestCredentials(t *testing.T) {
 	})
 
 	t.Run("Has", func(t *testing.T) {
-		creds := NewCredentials(map[string]string{"token": "abc"})
+		creds := New(map[string]string{"token": "abc"})
 
 		if !creds.Has("token") {
 			t.Errorf("expected Has(token) to be true")
@@ -127,4 +127,3 @@ func TestCredentials(t *testing.T) {
 		}
 	})
 }
-

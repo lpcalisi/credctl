@@ -14,6 +14,9 @@ import (
 func Add() *cobra.Command {
 	var runLogin bool
 	var force bool
+	var format string
+	var output string
+	var template string
 
 	cmd := &cobra.Command{
 		Use:   "add <type> <name>",
@@ -86,6 +89,17 @@ Available provider types: ` + fmt.Sprintf("%v", provider.ListTypes()),
 				return fmt.Errorf("failed to extract configuration: %w", err)
 			}
 
+			// Add global flags to config (only if provided)
+			if format != "" {
+				config[provider.MetadataFormat] = format
+			}
+			if output != "" {
+				config[provider.MetadataOutput] = output
+			}
+			if template != "" {
+				config[provider.MetadataTemplate] = template
+			}
+
 			prov, err := provider.New(providerType)
 			if err != nil {
 				return err
@@ -134,6 +148,9 @@ Available provider types: ` + fmt.Sprintf("%v", provider.ListTypes()),
 
 	cmd.Flags().BoolVar(&runLogin, "run-login", false, "Execute the login command before adding the provider")
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Overwrite existing provider")
+	cmd.Flags().StringVar(&format, "format", "", "Default output format for credctl get: json, text, escaped (default: text)")
+	cmd.Flags().StringVar(&output, "output", "", "Default output file path for credctl get")
+	cmd.Flags().StringVar(&template, "template", "", "Go template to format credentials (e.g., 'export TOKEN={{.token}}')")
 
 	return cmd
 }

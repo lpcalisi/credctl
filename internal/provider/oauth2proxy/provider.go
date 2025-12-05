@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"credctl/internal/formatter"
+	"credctl/internal/credentials"
 	"credctl/internal/provider"
 	"credctl/internal/provider/oauth2/common"
 )
@@ -18,6 +18,8 @@ type Provider struct {
 	tokenField   string // Which token to return: "token", "access_token", or "both"
 	redirectPort int    // Local port for callback server
 	template     string // Optional Go template for formatting output
+	format       string // Default output format
+	output       string // Default output file path
 
 	tokens *common.TokenCache // Cached tokens
 }
@@ -55,12 +57,6 @@ func (p *Provider) Schema() provider.Schema {
 				Default:  "8085",
 				Help:     "Local port for OAuth callback server",
 			},
-			{
-				Name:     provider.MetadataTemplate,
-				Type:     provider.FieldTypeString,
-				Required: false,
-				Help:     "Go template to format credentials (e.g., 'export TOKEN={{.token}}')",
-			},
 		},
 	}
 }
@@ -70,6 +66,8 @@ func (p *Provider) Init(config map[string]any) error {
 	p.tokenField = provider.GetStringOrDefault(config, "token_field", "token")
 	p.redirectPort = provider.GetIntOrDefault(config, provider.MetadataRedirectPort, 8085)
 	p.template = provider.GetStringOrDefault(config, provider.MetadataTemplate, "")
+	p.format = provider.GetStringOrDefault(config, provider.MetadataFormat, "text")
+	p.output = provider.GetStringOrDefault(config, provider.MetadataOutput, "")
 
 	// Validate required fields
 	if p.authURL == "" {
@@ -101,7 +99,7 @@ func (p *Provider) Get(ctx context.Context) ([]byte, error) {
 
 // GetCredentials returns the credentials in a structured format
 // This implements the CredentialsProvider interface
-func (p *Provider) GetCredentials(ctx context.Context) (*formatter.Credentials, error) {
+func (p *Provider) GetCredentials(ctx context.Context) (*credentials.Credentials, error) {
 	// Check if we have valid cached tokens
 	if !common.IsTokenValid(p.tokens) {
 		// No valid token, perform authentication flow
@@ -123,7 +121,7 @@ func (p *Provider) GetCredentials(ctx context.Context) (*formatter.Credentials, 
 		fields["access_token"] = p.tokens.AccessToken
 	}
 
-	return formatter.NewCredentials(fields), nil
+	return credentials.New(fields), nil
 }
 
 func (p *Provider) Login(ctx context.Context) error {
@@ -144,6 +142,15 @@ func (p *Provider) Metadata() map[string]any {
 
 	if p.template != "" {
 		metadata[provider.MetadataTemplate] = p.template
+	}
+
+	// Preserve format and output from config (set by cmd/add.go global flags)
+	if p.format != "" && p.format != "text" {
+		metadata[provider.MetadataFormat] = p.format
+	}
+
+	if p.output != "" {
+		metadata[provider.MetadataOutput] = p.output
 	}
 
 	return metadata
