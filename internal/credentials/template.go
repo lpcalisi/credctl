@@ -10,6 +10,14 @@ import (
 // The template has access to all credential fields using the
 // {{.field_name}} syntax
 //
+// If any credential field contains a JWT token, its standard claims
+// are automatically extracted and made available with a suffix:
+//   - {{.token_exp}} - expiration timestamp
+//   - {{.token_iat}} - issued at timestamp
+//   - {{.token_sub}} - subject
+//   - {{.token_iss}} - issuer
+//   - {{.token_payload}} - full JWT payload as JSON
+//
 // Example:
 //
 //	template: "export TOKEN={{.token}}"
@@ -23,6 +31,9 @@ func ApplyTemplate(creds *Credentials, tmplStr string) ([]byte, error) {
 	if tmplStr == "" {
 		return nil, fmt.Errorf("template string cannot be empty")
 	}
+
+	// Enrich credentials with JWT claims if any tokens are JWTs
+	creds.EnrichWithJWTClaims()
 
 	// Parse the template
 	tmpl, err := template.New("output").Parse(tmplStr)
@@ -38,4 +49,3 @@ func ApplyTemplate(creds *Credentials, tmplStr string) ([]byte, error) {
 
 	return buf.Bytes(), nil
 }
-
