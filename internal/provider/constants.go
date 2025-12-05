@@ -30,17 +30,3 @@ const (
 	MetadataRedirectPort   = "redirect_port"
 	MetadataRedirectURI    = "redirect_uri"
 )
-
-// OIDC provider types
-const (
-	ProviderOIDCPKCE   = "oidc-pkce"
-	ProviderOIDCDevice = "oidc-device"
-	ProviderOIDCClient = "oidc-client"
-)
-
-// OAuth2 provider types
-const (
-	ProviderOAuth2PKCE   = "oauth2-pkce"
-	ProviderOAuth2Device = "oauth2-device"
-	ProviderOAuth2Client = "oauth2-client"
-)

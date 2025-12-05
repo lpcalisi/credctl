@@ -1,111 +1,79 @@
 package common
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
-	"net/url"
-	"strings"
-	"time"
+
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/clientcredentials"
 )
 
+// RefreshAccessToken refreshes an OAuth2 access token using a refresh token
 func RefreshAccessToken(tokenEndpoint, clientID, clientSecret, refreshToken string) (*TokenCache, error) {
-	data := url.Values{}
-	data.Set("grant_type", "refresh_token")
-	data.Set("client_id", clientID)
-	data.Set("refresh_token", refreshToken)
-	if clientSecret != "" {
-		data.Set("client_secret", clientSecret)
+	ctx := context.Background()
+
+	config := &oauth2.Config{
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		Endpoint: oauth2.Endpoint{
+			TokenURL: tokenEndpoint,
+		},
 	}
 
-	body, err := postFormJSON(tokenEndpoint, data)
+	token := &oauth2.Token{
+		RefreshToken: refreshToken,
+	}
+
+	tokenSource := config.TokenSource(ctx, token)
+	newToken, err := tokenSource.Token()
 	if err != nil {
 		return nil, fmt.Errorf("failed to refresh token: %w", err)
 	}
 
-	var tokenResp TokenResponse
-	if err := json.Unmarshal(body, &tokenResp); err != nil {
-		return nil, fmt.Errorf("failed to parse token response: %w", err)
-	}
-
-	if tokenResp.Error != "" {
-		return nil, fmt.Errorf("token refresh failed: %s - %s", tokenResp.Error, tokenResp.ErrorDesc)
-	}
-
-	cache := &TokenCache{
-		AccessToken:  tokenResp.AccessToken,
-		RefreshToken: tokenResp.RefreshToken,
-		TokenType:    tokenResp.TokenType,
-		ExpiresAt:    time.Now().Add(time.Duration(NormalizeExpiresIn(tokenResp.ExpiresIn)) * time.Second),
-	}
-
-	if cache.RefreshToken == "" {
-		cache.RefreshToken = refreshToken
-	}
-
-	return cache, nil
+	return OAuth2TokenToCache(newToken), nil
 }
 
+// ExchangeCodeForTokens exchanges an authorization code for tokens
 func ExchangeCodeForTokens(tokenEndpoint, clientID, clientSecret, code, redirectURI, codeVerifier string) (*TokenCache, error) {
-	data := url.Values{}
-	data.Set("grant_type", "authorization_code")
-	data.Set("client_id", clientID)
-	data.Set("code", code)
-	data.Set("redirect_uri", redirectURI)
-	if clientSecret != "" {
-		data.Set("client_secret", clientSecret)
-	}
-	if codeVerifier != "" {
-		data.Set("code_verifier", codeVerifier)
+	ctx := context.Background()
+
+	config := &oauth2.Config{
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		Endpoint: oauth2.Endpoint{
+			TokenURL: tokenEndpoint,
+		},
+		RedirectURL: redirectURI,
 	}
 
-	body, err := postFormJSON(tokenEndpoint, data)
+	var opts []oauth2.AuthCodeOption
+	if codeVerifier != "" {
+		opts = append(opts, oauth2.SetAuthURLParam("code_verifier", codeVerifier))
+	}
+
+	token, err := config.Exchange(ctx, code, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to exchange code: %w", err)
 	}
 
-	var tokenResp TokenResponse
-	if err := json.Unmarshal(body, &tokenResp); err != nil {
-		return nil, fmt.Errorf("failed to parse token response: %w", err)
-	}
-
-	if tokenResp.Error != "" {
-		return nil, fmt.Errorf("token exchange failed: %s - %s", tokenResp.Error, tokenResp.ErrorDesc)
-	}
-
-	return &TokenCache{
-		AccessToken:  tokenResp.AccessToken,
-		RefreshToken: tokenResp.RefreshToken,
-		TokenType:    tokenResp.TokenType,
-		ExpiresAt:    time.Now().Add(time.Duration(NormalizeExpiresIn(tokenResp.ExpiresIn)) * time.Second),
-	}, nil
+	return OAuth2TokenToCache(token), nil
 }
 
+// GetClientCredentialsToken obtains a token using the client credentials grant
 func GetClientCredentialsToken(tokenEndpoint, clientID, clientSecret string, scopes []string) (*TokenCache, error) {
-	data := url.Values{}
-	data.Set("grant_type", "client_credentials")
-	data.Set("client_id", clientID)
-	data.Set("client_secret", clientSecret)
-	if len(scopes) > 0 {
-		data.Set("scope", strings.Join(scopes, " "))
+	ctx := context.Background()
+
+	config := &clientcredentials.Config{
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		TokenURL:     tokenEndpoint,
+		Scopes:       scopes,
 	}
 
-	body, err := postFormJSON(tokenEndpoint, data)
+	token, err := config.Token(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get client credentials token: %w", err)
 	}
 
-	var tokenResp TokenResponse
-	if err := json.Unmarshal(body, &tokenResp); err != nil {
-		return nil, fmt.Errorf("failed to parse token response: %w", err)
-	}
-
-	if tokenResp.Error != "" {
-		return nil, fmt.Errorf("client credentials grant failed: %s - %s", tokenResp.Error, tokenResp.ErrorDesc)
-	}
-
-	return &TokenCache{
-		AccessToken: tokenResp.AccessToken,
-		TokenType:   tokenResp.TokenType,
-		ExpiresAt:   time.Now().Add(time.Duration(NormalizeExpiresIn(tokenResp.ExpiresIn)) * time.Second),
-	}, nil
+	return OAuth2TokenToCache(token), nil
 }
