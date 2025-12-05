@@ -53,6 +53,73 @@ func generateState() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
+// CallbackResult contains the result of a callback from an authentication flow
+type CallbackResult struct {
+	Params url.Values // All query parameters received in the callback
+}
+
+// StartCallbackServer starts a local HTTP server and waits for a callback
+// This is a generic function that can be used by multiple authentication flows
+// It returns all query parameters received without performing any validation
+func StartCallbackServer(ctx context.Context, port int, path string) (*CallbackResult, error) {
+	resultChan := make(chan *CallbackResult, 1)
+	errChan := make(chan error, 1)
+
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		return nil, fmt.Errorf("failed to start callback server: %w", err)
+	}
+
+	server := &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != path {
+				http.NotFound(w, r)
+				return
+			}
+
+			// Capture all query parameters
+			params := r.URL.Query()
+
+			// Show success page
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			html := strings.Replace(successHTML, "{{LOGO_BASE64}}", getLogoBase64(), 1)
+			_, err := fmt.Fprint(w, html)
+			if err != nil {
+				errChan <- fmt.Errorf("failed to write response: %w", err)
+				return
+			}
+
+			resultChan <- &CallbackResult{Params: params}
+		}),
+	}
+
+	go func() {
+		if err := server.Serve(listener); err != http.ErrServerClosed {
+			errChan <- err
+		}
+	}()
+
+	var result *CallbackResult
+	select {
+	case result = <-resultChan:
+	case err := <-errChan:
+		_ = server.Close()
+		return nil, err
+	case <-ctx.Done():
+		_ = server.Close()
+		return nil, ctx.Err()
+	case <-time.After(5 * time.Minute):
+		_ = server.Close()
+		return nil, fmt.Errorf("authentication timed out")
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = server.Shutdown(shutdownCtx)
+
+	return result, nil
+}
+
 // AuthCodeFlowParams contains parameters for authorization code flow
 type AuthCodeFlowParams struct {
 	AuthEndpoint string
@@ -136,76 +203,28 @@ func AuthenticateAuthCodeFlow(ctx context.Context, params AuthCodeFlowParams) (c
 	}
 
 	if isLocalhost {
-		codeChan := make(chan string, 1)
-		errChan := make(chan error, 1)
-
-		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", serverPort))
+		// Use the generic callback server
+		result, err := StartCallbackServer(ctx, serverPort, callbackPath)
 		if err != nil {
-			return "", "", "", fmt.Errorf("failed to start callback server: %w", err)
-		}
-
-		server := &http.Server{
-			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.URL.Path != callbackPath {
-					http.NotFound(w, r)
-					return
-				}
-
-				if r.URL.Query().Get("state") != state {
-					errChan <- fmt.Errorf("state mismatch")
-					http.Error(w, "State mismatch", http.StatusBadRequest)
-					return
-				}
-
-				if errParam := r.URL.Query().Get("error"); errParam != "" {
-					errDesc := r.URL.Query().Get("error_description")
-					errChan <- fmt.Errorf("authorization error: %s - %s", errParam, errDesc)
-					http.Error(w, fmt.Sprintf("Authorization error: %s", errDesc), http.StatusBadRequest)
-					return
-				}
-
-				authCode := r.URL.Query().Get("code")
-				if authCode == "" {
-					errChan <- fmt.Errorf("no authorization code received")
-					http.Error(w, "No authorization code", http.StatusBadRequest)
-					return
-				}
-
-				w.Header().Set("Content-Type", "text/html; charset=utf-8")
-				// Embed logo as base64 (placeholder - will be replaced at build time if needed)
-				html := strings.Replace(successHTML, "{{LOGO_BASE64}}", getLogoBase64(), 1)
-				_, err := fmt.Fprint(w, html)
-				if err != nil {
-					errChan <- fmt.Errorf("failed to write response: %w", err)
-					return
-				}
-
-				codeChan <- authCode
-			}),
-		}
-
-		go func() {
-			if err := server.Serve(listener); err != http.ErrServerClosed {
-				errChan <- err
-			}
-		}()
-
-		select {
-		case code = <-codeChan:
-		case err := <-errChan:
-			_ = server.Close()
 			return "", "", "", err
-		case <-ctx.Done():
-			_ = server.Close()
-			return "", "", "", ctx.Err()
-		case <-time.After(5 * time.Minute):
-			_ = server.Close()
-			return "", "", "", fmt.Errorf("authentication timed out")
 		}
 
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = server.Shutdown(shutdownCtx)
+		// Validate state parameter
+		if result.Params.Get("state") != state {
+			return "", "", "", fmt.Errorf("state mismatch")
+		}
+
+		// Check for OAuth2 error response
+		if errParam := result.Params.Get("error"); errParam != "" {
+			errDesc := result.Params.Get("error_description")
+			return "", "", "", fmt.Errorf("authorization error: %s - %s", errParam, errDesc)
+		}
+
+		// Extract authorization code
+		code = result.Params.Get("code")
+		if code == "" {
+			return "", "", "", fmt.Errorf("no authorization code received")
+		}
 	} else {
 		fmt.Fprintf(os.Stderr, "\nExternal redirect URI detected: %s\n", redirectURI)
 		fmt.Fprintf(os.Stderr, "After authorizing, extract the 'code' parameter from the callback URL and enter it below.\n\n")
