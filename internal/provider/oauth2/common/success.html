@@ -107,6 +107,45 @@
             color: #1f2937;
         }
 
+        .countdown {
+            margin-top: 24px;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+        }
+
+        .countdown-timer {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            font-size: 18px;
+            font-weight: 700;
+            margin-left: 8px;
+            animation: pulse 1s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.1);
+            }
+        }
+
+        .countdown-text {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+
         @media (max-width: 640px) {
             .container {
                 padding: 32px 24px;
@@ -138,13 +177,28 @@
         <div class="info">
             <strong>credctl</strong> is now configured and ready to use.
         </div>
+
+        <div class="countdown">
+            <div class="countdown-text">
+                This tab will close automatically in <span class="countdown-timer" id="countdown">10</span>
+            </div>
+        </div>
     </div>
 
     <script>
-        // Auto-close after 3 seconds
-        setTimeout(() => {
-            window.close();
-        }, 3000);
+        // Auto-close countdown (10 seconds)
+        let seconds = 10;
+        const countdownEl = document.getElementById('countdown');
+        
+        const interval = setInterval(() => {
+            seconds--;
+            countdownEl.textContent = seconds;
+            
+            if (seconds <= 0) {
+                clearInterval(interval);
+                window.close();
+            }
+        }, 1000);
     </script>
 </body>
 </html>
