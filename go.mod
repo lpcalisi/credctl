@@ -9,7 +9,7 @@ require (
 	github.com/go-jose/go-jose/v4 v4.1.3
 	github.com/sevlyar/go-daemon v0.1.6
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/oauth2 v0.33.0
+	golang.org/x/oauth2 v0.34.0
 	sigs.k8s.io/release-utils v0.12.2
 )
 
