@@ -106,64 +106,20 @@ No-daemon mode (--no-daemon):
 
 			rawOutput := getRespPayload.Output
 			metadata := getRespPayload.Metadata
-			structuredFields := getRespPayload.StructuredFields
-			hasStructuredFields := getRespPayload.HasStructuredFields
 
 			// Determine effective values (flag > metadata > default)
 			effectiveFormat := getEffective(format, metadata, provider.MetadataFormat, "text")
 			effectiveOutput := getEffective(outputPath, metadata, provider.MetadataOutput, "")
 			effectiveTemplate := getEffective(templateStr, metadata, provider.MetadataTemplate, "")
 
-			// Apply template if specified
-			var finalOutput []byte
-
-			// If template is requested, apply it
-			if effectiveTemplate != "" {
-				if !hasStructuredFields {
-					return fmt.Errorf("template requested but provider does not support structured credentials")
-				}
-
-				creds := credentials.New(structuredFields)
-				templatedOutput, err := credentials.ApplyTemplate(creds, effectiveTemplate)
-				if err != nil {
-					return fmt.Errorf("failed to apply template: %w", err)
-				}
-				finalOutput = templatedOutput
-			} else {
-				// No template, use raw output
-				finalOutput = []byte(rawOutput)
-			}
-
-			// Apply format
-			fmtr, err := formatter.Get(effectiveFormat)
-			if err != nil {
-				// Show available formats in error
-				available := formatter.List()
-				return fmt.Errorf("unsupported format '%s', available formats: %v", effectiveFormat, available)
-			}
-
-			formattedOutput, err := fmtr.Format(finalOutput)
-			if err != nil {
-				return fmt.Errorf("failed to format output: %w", err)
-			}
-
-			// Handle output destination
-			if effectiveOutput != "" {
-				// Write to file
-				if err := output.Write(formattedOutput, effectiveOutput); err != nil {
-					return fmt.Errorf("failed to write output: %w", err)
-				}
-				fmt.Printf("Credentials written to %s\n", effectiveOutput)
-				return nil
-			}
-
-			// Output to stdout
-			fmt.Print(string(formattedOutput))
-			if len(formattedOutput) > 0 && formattedOutput[len(formattedOutput)-1] != '\n' {
-				fmt.Println()
-			}
-
-			return nil
+			return formatAndOutput(outputParams{
+				rawOutput:           []byte(rawOutput),
+				structuredFields:    getRespPayload.StructuredFields,
+				hasStructuredFields: getRespPayload.HasStructuredFields,
+				templateStr:         effectiveTemplate,
+				format:              effectiveFormat,
+				outputPath:          effectiveOutput,
+			})
 		},
 	}
 
@@ -187,6 +143,66 @@ func getEffective(flagValue string, metadata map[string]any, metadataKey string,
 		}
 	}
 	return defaultValue
+}
+
+// outputParams contains parameters for formatting and outputting credentials
+type outputParams struct {
+	rawOutput          []byte
+	structuredFields   map[string]string
+	hasStructuredFields bool
+	templateStr        string
+	format             string
+	outputPath         string
+}
+
+// formatAndOutput applies template, format, and writes output
+func formatAndOutput(params outputParams) error {
+	var finalOutput []byte
+
+	// Apply template if specified
+	if params.templateStr != "" {
+		if !params.hasStructuredFields {
+			return fmt.Errorf("template requested but provider does not support structured credentials")
+		}
+
+		creds := credentials.New(params.structuredFields)
+		templatedOutput, err := credentials.ApplyTemplate(creds, params.templateStr)
+		if err != nil {
+			return fmt.Errorf("failed to apply template: %w", err)
+		}
+		finalOutput = templatedOutput
+	} else {
+		finalOutput = params.rawOutput
+	}
+
+	// Apply format
+	fmtr, err := formatter.Get(params.format)
+	if err != nil {
+		available := formatter.List()
+		return fmt.Errorf("unsupported format '%s', available formats: %v", params.format, available)
+	}
+
+	formattedOutput, err := fmtr.Format(finalOutput)
+	if err != nil {
+		return fmt.Errorf("failed to format output: %w", err)
+	}
+
+	// Handle output destination
+	if params.outputPath != "" {
+		if err := output.Write(formattedOutput, params.outputPath); err != nil {
+			return fmt.Errorf("failed to write output: %w", err)
+		}
+		fmt.Printf("Credentials written to %s\n", params.outputPath)
+		return nil
+	}
+
+	// Output to stdout
+	fmt.Print(string(formattedOutput))
+	if len(formattedOutput) > 0 && formattedOutput[len(formattedOutput)-1] != '\n' {
+		fmt.Println()
+	}
+
+	return nil
 }
 
 // containsFlag checks if args contains the specified flag
@@ -283,50 +299,12 @@ func runNoDaemon(cmd *cobra.Command, args []string, templateStr, outputPath, for
 		format = "text"
 	}
 
-	// Apply template if specified
-	var finalOutput []byte
-
-	if templateStr != "" {
-		if !hasStructuredFields {
-			return fmt.Errorf("template requested but provider does not support structured credentials")
-		}
-
-		creds := credentials.New(structuredFields)
-		templatedOutput, err := credentials.ApplyTemplate(creds, templateStr)
-		if err != nil {
-			return fmt.Errorf("failed to apply template: %w", err)
-		}
-		finalOutput = templatedOutput
-	} else {
-		finalOutput = rawOutput
-	}
-
-	// Apply format
-	fmtr, err := formatter.Get(format)
-	if err != nil {
-		available := formatter.List()
-		return fmt.Errorf("unsupported format '%s', available formats: %v", format, available)
-	}
-
-	formattedOutput, err := fmtr.Format(finalOutput)
-	if err != nil {
-		return fmt.Errorf("failed to format output: %w", err)
-	}
-
-	// Handle output destination
-	if outputPath != "" {
-		if err := output.Write(formattedOutput, outputPath); err != nil {
-			return fmt.Errorf("failed to write output: %w", err)
-		}
-		fmt.Printf("Credentials written to %s\n", outputPath)
-		return nil
-	}
-
-	// Output to stdout
-	fmt.Print(string(formattedOutput))
-	if len(formattedOutput) > 0 && formattedOutput[len(formattedOutput)-1] != '\n' {
-		fmt.Println()
-	}
-
-	return nil
+	return formatAndOutput(outputParams{
+		rawOutput:           rawOutput,
+		structuredFields:    structuredFields,
+		hasStructuredFields: hasStructuredFields,
+		templateStr:         templateStr,
+		format:              format,
+		outputPath:          outputPath,
+	})
 }
